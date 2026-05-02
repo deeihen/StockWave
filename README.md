@@ -4,6 +4,8 @@ StockWave
 Quickstart (Read This First)
 ----------------------------
 
+if dotnet run and npm run dev is not working do this.
+
 Prerequisites
 - Node.js + npm
 - .NET SDK
