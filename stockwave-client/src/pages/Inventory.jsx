@@ -1,21 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Inventory.css";
-
-// ── Mock Data ──────────────────────────────────────
-const initialProducts = [
-  { id: 1, name: "Wireless Keyboard", category: "Electronics", stock: 50, price: 1200, unit: "pcs", status: "In Stock" },
-  { id: 2, name: "USB-C Cable", category: "Electronics", stock: 12, price: 250, unit: "pcs", status: "Low Stock" },
-  { id: 3, name: "Office Chair", category: "Furniture", stock: 5, price: 8500, unit: "pcs", status: "Low Stock" },
-  { id: 4, name: "Monitor Stand", category: "Furniture", stock: 30, price: 1500, unit: "pcs", status: "In Stock" },
-  { id: 5, name: "HDMI Cable", category: "Electronics", stock: 0, price: 350, unit: "pcs", status: "Out of Stock" },
-  { id: 6, name: "Printer Paper", category: "Office Supplies", stock: 7, price: 300, unit: "ream", status: "Low Stock" },
-  { id: 7, name: "AA Batteries", category: "Electronics", stock: 4, price: 120, unit: "pack", status: "Low Stock" },
-  { id: 8, name: "Sticky Notes", category: "Office Supplies", stock: 9, price: 80, unit: "pack", status: "Low Stock" },
-  { id: 9, name: "Ethernet Cable", category: "Electronics", stock: 2, price: 450, unit: "pcs", status: "Low Stock" },
-  { id: 10, name: "Whiteboard Marker", category: "Office Supplies", stock: 60, price: 50, unit: "pcs", status: "In Stock" },
-  { id: 11, name: "Laptop Stand", category: "Furniture", stock: 18, price: 2200, unit: "pcs", status: "In Stock" },
-  { id: 12, name: "Mouse Pad", category: "Electronics", stock: 45, price: 300, unit: "pcs", status: "In Stock" },
-];
+import { getProducts, createProduct, updateProduct, deleteProduct } from "../api/stockwaveApi";
 
 const categories = ["All", "Electronics", "Furniture", "Office Supplies"];
 const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
@@ -35,7 +20,6 @@ function ProductModal({ mode, product, onClose, onSave }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     let updated = { ...form, [name]: value };
-    // Auto-set status based on stock
     if (name === "stock") {
       const s = parseInt(value);
       updated.status = isNaN(s) ? "In Stock" : s === 0 ? "Out of Stock" : s <= 10 ? "Low Stock" : "In Stock";
@@ -58,16 +42,13 @@ function ProductModal({ mode, product, onClose, onSave }) {
           <h3 className="modal-title">{mode === "add" ? "Add New Product" : "Edit Product"}</h3>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-
         {error && <div className="modal-error">{error}</div>}
-
         <div className="modal-body">
           <div className="mfield-group">
             <label className="mfield-label">Product Name</label>
             <input className="mfield-input" name="name" placeholder="e.g. Wireless Mouse"
               value={form.name} onChange={handleChange} />
           </div>
-
           <div className="mfield-row">
             <div className="mfield-group">
               <label className="mfield-label">Category</label>
@@ -84,7 +65,6 @@ function ProductModal({ mode, product, onClose, onSave }) {
               </select>
             </div>
           </div>
-
           <div className="mfield-row">
             <div className="mfield-group">
               <label className="mfield-label">Stock Quantity</label>
@@ -97,7 +77,6 @@ function ProductModal({ mode, product, onClose, onSave }) {
                 placeholder="0.00" value={form.price} onChange={handleChange} />
             </div>
           </div>
-
           <div className="mfield-group">
             <label className="mfield-label">Status</label>
             <div className="status-preview">
@@ -106,7 +85,6 @@ function ProductModal({ mode, product, onClose, onSave }) {
             </div>
           </div>
         </div>
-
         <div className="modal-footer">
           <button className="btn-cancel" onClick={onClose}>Cancel</button>
           <button className="btn-save" onClick={handleSubmit}>
@@ -145,18 +123,33 @@ function DeleteModal({ product, onClose, onConfirm }) {
 
 // ── Main Component ─────────────────────────────────
 export default function Inventory() {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
-  const [modal, setModal] = useState(null); // { type: "add"|"edit"|"delete", product? }
+  const [modal, setModal] = useState(null);
   const [selected, setSelected] = useState([]);
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
   const PER_PAGE = 8;
 
-  // ── Filter + Sort ──────────────────────────────
+  useEffect(() => { fetchProducts(); }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await getProducts();
+      setProducts(res.data);
+    } catch {
+      setApiError("Failed to load products. Make sure the backend is running.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filtered = products
     .filter(p => {
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -186,26 +179,38 @@ export default function Inventory() {
     </span>
   );
 
-  // ── CRUD ──────────────────────────────────────
-  const handleAdd = (data) => {
-    const newP = { ...data, id: Date.now() };
-    setProducts(prev => [newP, ...prev]);
-    setModal(null);
+  const handleAdd = async (data) => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      await createProduct({ ...data, performedBy: user.username || "Admin" });
+      await fetchProducts();
+      setModal(null);
+    } catch { alert("Failed to add product."); }
   };
 
-  const handleEdit = (data) => {
-    setProducts(prev => prev.map(p => p.id === modal.product.id ? { ...data, id: p.id } : p));
-    setModal(null);
+  const handleEdit = async (data) => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      await updateProduct(modal.product.id, { ...data, performedBy: user.username || "Admin" });
+      await fetchProducts();
+      setModal(null);
+    } catch { alert("Failed to update product."); }
   };
 
-  const handleDelete = () => {
-    setProducts(prev => prev.filter(p => p.id !== modal.product.id));
-    setModal(null);
+  const handleDelete = async () => {
+    try {
+      await deleteProduct(modal.product.id);
+      await fetchProducts();
+      setModal(null);
+    } catch { alert("Failed to delete product."); }
   };
 
-  const handleBulkDelete = () => {
-    setProducts(prev => prev.filter(p => !selected.includes(p.id)));
-    setSelected([]);
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all(selected.map(id => deleteProduct(id)));
+      await fetchProducts();
+      setSelected([]);
+    } catch { alert("Failed to delete some products."); }
   };
 
   const toggleSelect = (id) => {
@@ -218,7 +223,6 @@ export default function Inventory() {
     setSelected(allSelected ? selected.filter(id => !pageIds.includes(id)) : [...new Set([...selected, ...pageIds])]);
   };
 
-  // ── Stats ──────────────────────────────────────
   const totalItems = products.length;
   const inStock = products.filter(p => p.status === "In Stock").length;
   const lowStock = products.filter(p => p.status === "Low Stock").length;
@@ -226,7 +230,6 @@ export default function Inventory() {
 
   return (
     <div className="inv-root">
-      {/* ── PAGE HEADER ── */}
       <div className="inv-header">
         <div>
           <h1 className="inv-title">Inventory</h1>
@@ -237,142 +240,141 @@ export default function Inventory() {
         </button>
       </div>
 
-      {/* ── MINI STATS ── */}
-      <div className="inv-stats">
-        <div className="inv-stat">
-          <span className="istat-num">{totalItems}</span>
-          <span className="istat-label">Total Products</span>
-        </div>
-        <div className="istat-divider" />
-        <div className="inv-stat">
-          <span className="istat-num green">{inStock}</span>
-          <span className="istat-label">In Stock</span>
-        </div>
-        <div className="istat-divider" />
-        <div className="inv-stat">
-          <span className="istat-num amber">{lowStock}</span>
-          <span className="istat-label">Low Stock</span>
-        </div>
-        <div className="istat-divider" />
-        <div className="inv-stat">
-          <span className="istat-num red">{outOfStock}</span>
-          <span className="istat-label">Out of Stock</span>
-        </div>
-      </div>
-
-      {/* ── FILTERS ── */}
-      <div className="inv-filters">
-        <div className="search-box">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="8" stroke="#aaa" strokeWidth="1.5"/>
-            <path d="M21 21l-4.35-4.35" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <input
-            className="search-inp"
-            placeholder="Search products..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
-          />
-        </div>
-
-        <div className="filter-group">
-          <select className="filter-sel" value={filterCat}
-            onChange={e => { setFilterCat(e.target.value); setPage(1); }}>
-            {categories.map(c => <option key={c}>{c}</option>)}
-          </select>
-
-          <select className="filter-sel" value={filterStatus}
-            onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
-            {statuses.map(s => <option key={s}>{s}</option>)}
-          </select>
-        </div>
-
-        {selected.length > 0 && (
-          <button className="btn-bulk-delete" onClick={handleBulkDelete}>
-            🗑 Delete {selected.length} selected
-          </button>
-        )}
-      </div>
-
-      {/* ── TABLE ── */}
-      <div className="inv-table-wrap">
-        <table className="inv-table">
-          <thead>
-            <tr>
-              <th className="th-check">
-                <input type="checkbox"
-                  checked={paginated.length > 0 && paginated.every(p => selected.includes(p.id))}
-                  onChange={toggleAll} />
-              </th>
-              <th onClick={() => handleSort("name")}>Product <SortIcon col="name" /></th>
-              <th onClick={() => handleSort("category")}>Category <SortIcon col="category" /></th>
-              <th onClick={() => handleSort("stock")}>Stock <SortIcon col="stock" /></th>
-              <th onClick={() => handleSort("price")}>Price <SortIcon col="price" /></th>
-              <th>Unit</th>
-              <th onClick={() => handleSort("status")}>Status <SortIcon col="status" /></th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.length === 0 ? (
-              <tr>
-                <td colSpan="8" className="empty-row">
-                  <div className="empty-state">
-                    <span className="empty-icon">📦</span>
-                    <p>No products found</p>
-                  </div>
-                </td>
-              </tr>
-            ) : paginated.map(p => (
-              <tr key={p.id} className={selected.includes(p.id) ? "row-selected" : ""}>
-                <td className="td-check">
-                  <input type="checkbox"
-                    checked={selected.includes(p.id)}
-                    onChange={() => toggleSelect(p.id)} />
-                </td>
-                <td className="td-name">{p.name}</td>
-                <td><span className="cat-tag">{p.category}</span></td>
-                <td className={`td-stock ${p.stock === 0 ? "zero" : p.stock <= 10 ? "low" : ""}`}>
-                  {p.stock}
-                </td>
-                <td className="td-price">₱{p.price.toLocaleString()}</td>
-                <td className="td-unit">{p.unit}</td>
-                <td><StatusBadge status={p.status} /></td>
-                <td>
-                  <div className="action-btns">
-                    <button className="act-btn edit" title="Edit"
-                      onClick={() => setModal({ type: "edit", product: p })}>
-                      ✏️
-                    </button>
-                    <button className="act-btn del" title="Delete"
-                      onClick={() => setModal({ type: "delete", product: p })}>
-                      🗑️
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ── PAGINATION ── */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <span className="page-info">
-            Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length}
-          </span>
-          <div className="page-btns">
-            <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-              <button key={n} className={`page-btn ${n === page ? "active" : ""}`} onClick={() => setPage(n)}>{n}</button>
-            ))}
-            <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
-          </div>
+      {apiError && (
+        <div style={{ background: "#fef2f2", color: "#ef4444", padding: "12px 16px",
+          borderRadius: 10, border: "1px solid #fecaca", fontSize: 13 }}>
+          {apiError}
         </div>
       )}
 
-      {/* ── MODALS ── */}
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 48, color: "#9ca3af", fontSize: 14 }}>
+          Loading products...
+        </div>
+      ) : (
+        <>
+          <div className="inv-stats">
+            <div className="inv-stat">
+              <span className="istat-num">{totalItems}</span>
+              <span className="istat-label">Total Products</span>
+            </div>
+            <div className="istat-divider" />
+            <div className="inv-stat">
+              <span className="istat-num green">{inStock}</span>
+              <span className="istat-label">In Stock</span>
+            </div>
+            <div className="istat-divider" />
+            <div className="inv-stat">
+              <span className="istat-num amber">{lowStock}</span>
+              <span className="istat-label">Low Stock</span>
+            </div>
+            <div className="istat-divider" />
+            <div className="inv-stat">
+              <span className="istat-num red">{outOfStock}</span>
+              <span className="istat-label">Out of Stock</span>
+            </div>
+          </div>
+
+          <div className="inv-filters">
+            <div className="search-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="8" stroke="#aaa" strokeWidth="1.5"/>
+                <path d="M21 21l-4.35-4.35" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <input className="search-inp" placeholder="Search products..."
+                value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+            </div>
+            <div className="filter-group">
+              <select className="filter-sel" value={filterCat}
+                onChange={e => { setFilterCat(e.target.value); setPage(1); }}>
+                {categories.map(c => <option key={c}>{c}</option>)}
+              </select>
+              <select className="filter-sel" value={filterStatus}
+                onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
+                {statuses.map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            {selected.length > 0 && (
+              <button className="btn-bulk-delete" onClick={handleBulkDelete}>
+                🗑 Delete {selected.length} selected
+              </button>
+            )}
+          </div>
+
+          <div className="inv-table-wrap">
+            <table className="inv-table">
+              <thead>
+                <tr>
+                  <th className="th-check">
+                    <input type="checkbox"
+                      checked={paginated.length > 0 && paginated.every(p => selected.includes(p.id))}
+                      onChange={toggleAll} />
+                  </th>
+                  <th onClick={() => handleSort("name")}>Product <SortIcon col="name" /></th>
+                  <th onClick={() => handleSort("category")}>Category <SortIcon col="category" /></th>
+                  <th onClick={() => handleSort("stock")}>Stock <SortIcon col="stock" /></th>
+                  <th onClick={() => handleSort("price")}>Price <SortIcon col="price" /></th>
+                  <th>Unit</th>
+                  <th onClick={() => handleSort("status")}>Status <SortIcon col="status" /></th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="empty-row">
+                      <div className="empty-state">
+                        <span className="empty-icon">📦</span>
+                        <p>No products found. Click "Add Product" to get started.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginated.map(p => (
+                  <tr key={p.id} className={selected.includes(p.id) ? "row-selected" : ""}>
+                    <td className="td-check">
+                      <input type="checkbox"
+                        checked={selected.includes(p.id)}
+                        onChange={() => toggleSelect(p.id)} />
+                    </td>
+                    <td className="td-name">{p.name}</td>
+                    <td><span className="cat-tag">{p.category}</span></td>
+                    <td className={`td-stock ${p.stock === 0 ? "zero" : p.stock <= 10 ? "low" : ""}`}>
+                      {p.stock}
+                    </td>
+                    <td className="td-price">₱{p.price.toLocaleString()}</td>
+                    <td className="td-unit">{p.unit}</td>
+                    <td><StatusBadge status={p.status} /></td>
+                    <td>
+                      <div className="action-btns">
+                        <button className="act-btn edit" title="Edit"
+                          onClick={() => setModal({ type: "edit", product: p })}>✏️</button>
+                        <button className="act-btn del" title="Delete"
+                          onClick={() => setModal({ type: "delete", product: p })}>🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination">
+              <span className="page-info">
+                Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="page-btns">
+                <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                  <button key={n} className={`page-btn ${n === page ? "active" : ""}`} onClick={() => setPage(n)}>{n}</button>
+                ))}
+                <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {modal?.type === "add" && (
         <ProductModal mode="add" onClose={() => setModal(null)} onSave={handleAdd} />
       )}

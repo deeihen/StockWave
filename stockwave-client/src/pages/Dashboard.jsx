@@ -1,48 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Dashboard.css";
 import Inventory from "./Inventory";
 import Reports from "./Reports";
 import Users from "./Users";
 import Settings from "./Settings";
+import { getReportSummary, getRecentActivity, getLowStock } from "../api/stockwaveApi";
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
 } from "recharts";
 
-const stockTrend = [
-  { day: "Mon", value: 340 },
-  { day: "Tue", value: 380 },
-  { day: "Wed", value: 310 },
-  { day: "Thu", value: 420 },
-  { day: "Fri", value: 390 },
-  { day: "Sat", value: 460 },
-  { day: "Sun", value: 435 },
-];
-
-const categoryData = [
-  { name: "Electronics", stock: 120 },
-  { name: "Clothing", stock: 85 },
-  { name: "Food", stock: 200 },
-  { name: "Tools", stock: 60 },
-  { name: "Office", stock: 95 },
-];
-
-const recentActivity = [
-  { id: 1, action: "Added", item: "Wireless Keyboard", qty: 50, user: "Admin", time: "2 min ago", type: "in" },
-  { id: 2, action: "Removed", item: "USB-C Cable", qty: 12, user: "Staff", time: "15 min ago", type: "out" },
-  { id: 3, action: "Updated", item: "Office Chair", qty: 5, user: "Manager", time: "1 hr ago", type: "update" },
-  { id: 4, action: "Added", item: "Monitor Stand", qty: 30, user: "Admin", time: "2 hr ago", type: "in" },
-  { id: 5, action: "Removed", item: "HDMI Cable", qty: 8, user: "Staff", time: "3 hr ago", type: "out" },
-];
-
-const lowStockItems = [
-  { name: "AA Batteries", stock: 4, min: 20 },
-  { name: "Printer Paper", stock: 7, min: 50 },
-  { name: "Ethernet Cable", stock: 2, min: 15 },
-  { name: "Sticky Notes", stock: 9, min: 30 },
-];
-
+// ── Stat Card ──────────────────────────────────────
 function StatCard({ icon, label, value, sub, color, delay }) {
   return (
     <div className="stat-card" style={{ animationDelay: delay }}>
@@ -71,17 +40,18 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const pageTitles = {
-  dashboard: { title: "Dashboard", sub: "Welcome back, Admin — here's what's happening today." },
+  dashboard: { title: "Dashboard", sub: "Welcome back — here's what's happening today." },
   inventory: { title: "Inventory", sub: "Manage and track all your products." },
   reports: { title: "Reports", sub: "View analytics and stock reports." },
   users: { title: "Users", sub: "Manage system users and roles." },
   settings: { title: "Settings", sub: "Configure your preferences." },
 };
 
+// ── Main Dashboard Component ───────────────────────
 export default function Dashboard({ onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activePage, setActivePage] = useState("dashboard");
-  const user = JSON.parse(localStorage.getItem("user") || '{}');
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const avatarLetter = user.fullName?.[0]?.toUpperCase() || "A";
 
   const navItems = [
@@ -185,127 +155,130 @@ export default function Dashboard({ onLogout }) {
   );
 }
 
-// ── Dashboard Home Content ─────────────────────────
+// ── Dashboard Home — wired to real API ────────────
 function DashboardHome() {
+  const [summary, setSummary] = useState(null);
+  const [activity, setActivity] = useState([]);
+  const [lowStock, setLowStock] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [s, a, l] = await Promise.all([
+          getReportSummary(),
+          getRecentActivity(),
+          getLowStock(),
+        ]);
+        setSummary(s.data);
+        setActivity(a.data);
+        setLowStock(l.data);
+      } catch {
+        // silently fail — show dashes
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", padding: 64, color: "#9ca3af", fontSize: 14 }}>
+        Loading dashboard...
+      </div>
+    );
+  }
+
   return (
     <div className="dash-content">
+      {/* ── STAT CARDS ── */}
       <div className="stats-grid">
-        <StatCard icon="📦" label="Total Products" value="1,248" sub="+12 this week" color="#1a6b3c" delay="0ms"/>
-        <StatCard icon="⚠️" label="Low Stock" value="4" sub="Needs restocking" color="#d97706" delay="80ms"/>
-        <StatCard icon="📥" label="Items Added" value="186" sub="This month" color="#2563eb" delay="160ms"/>
-        <StatCard icon="📤" label="Items Removed" value="94" sub="This month" color="#7c3aed" delay="240ms"/>
+        <StatCard icon="📦" label="Total Products"
+          value={summary?.totalProducts ?? "—"}
+          sub="In database" color="#1a6b3c" delay="0ms"/>
+        <StatCard icon="⚠️" label="Low Stock"
+          value={summary?.lowStock ?? "—"}
+          sub="Needs restocking" color="#d97706" delay="80ms"/>
+        <StatCard icon="📥" label="Items Added"
+          value={summary?.itemsAddedThisMonth ?? "—"}
+          sub="This month" color="#2563eb" delay="160ms"/>
+        <StatCard icon="📤" label="Items Removed"
+          value={summary?.itemsRemovedThisMonth ?? "—"}
+          sub="This month" color="#7c3aed" delay="240ms"/>
       </div>
 
-      <div className="charts-row">
-        <div className="chart-card wide">
-          <div className="chart-card-header">
-            <div>
-              <h3 className="chart-title">Stock Movement</h3>
-              <p className="chart-sub">Units tracked this week</p>
-            </div>
-            <span className="chart-badge up">↑ 14.2%</span>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={stockTrend} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="stockGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1a6b3c" stopOpacity={0.15}/>
-                  <stop offset="95%" stopColor="#1a6b3c" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
-              <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-              <Tooltip content={<CustomTooltip />}/>
-              <Area type="monotone" dataKey="value" stroke="#1a6b3c" strokeWidth={2.5}
-                fill="url(#stockGrad)" dot={false} activeDot={{ r: 5, fill: "#1a6b3c" }}/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="chart-card">
-          <div className="chart-card-header">
-            <div>
-              <h3 className="chart-title">By Category</h3>
-              <p className="chart-sub">Current stock levels</p>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={categoryData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-              <Tooltip content={<CustomTooltip />}/>
-              <Bar dataKey="stock" fill="#1a6b3c" radius={[4, 4, 0, 0]} maxBarSize={32}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
+      {/* ── BOTTOM ROW ── */}
       <div className="bottom-row">
+        {/* Recent Activity */}
         <div className="table-card wide">
           <div className="table-card-header">
             <h3 className="chart-title">Recent Activity</h3>
-            <button className="see-all-btn">See all</button>
           </div>
-          <table className="activity-table">
-            <thead>
-              <tr>
-                <th>Action</th><th>Item</th><th>Qty</th><th>By</th><th>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentActivity.map(a => (
-                <tr key={a.id}>
-                  <td><span className={`action-badge ${a.type}`}>{a.action}</span></td>
-                  <td className="item-name">{a.item}</td>
-                  <td className="qty-cell">{a.qty}</td>
-                  <td className="user-cell">{a.user}</td>
-                  <td className="time-cell">{a.time}</td>
+          {activity.length === 0 ? (
+            <p style={{ color: "#9ca3af", fontSize: 13, padding: "12px 0" }}>
+              No activity yet. Add products to see logs here.
+            </p>
+          ) : (
+            <table className="activity-table">
+              <thead>
+                <tr>
+                  <th>Action</th><th>Item</th><th>Qty</th><th>By</th><th>Time</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {activity.slice(0, 5).map(a => (
+                  <tr key={a.id}>
+                    <td>
+                      <span className={`action-badge ${a.action === "Added" ? "in" : "out"}`}>
+                        {a.action}
+                      </span>
+                    </td>
+                    <td className="item-name">{a.item}</td>
+                    <td className="qty-cell">{a.quantity}</td>
+                    <td className="user-cell">{a.performedBy}</td>
+                    <td className="time-cell">
+                      {new Date(a.timestamp).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
+        {/* Low Stock Alerts */}
         <div className="table-card">
           <div className="table-card-header">
             <h3 className="chart-title">Low Stock Alerts</h3>
-            <span className="alert-count">{lowStockItems.length}</span>
+            <span className="alert-count">{lowStock.length}</span>
           </div>
-          <div className="low-stock-list">
-            {lowStockItems.map((item, i) => {
-              const pct = Math.round((item.stock / item.min) * 100);
-              return (
+          {lowStock.length === 0 ? (
+            <p style={{ color: "#9ca3af", fontSize: 13 }}>
+              All items are well stocked! 🎉
+            </p>
+          ) : (
+            <div className="low-stock-list">
+              {lowStock.slice(0, 4).map((item, i) => (
                 <div key={i} className="low-stock-item">
                   <div className="low-stock-top">
                     <span className="low-stock-name">{item.name}</span>
-                    <span className="low-stock-qty">{item.stock} / {item.min}</span>
+                    <span className="low-stock-qty">{item.stock} units</span>
                   </div>
                   <div className="low-stock-bar-bg">
                     <div className="low-stock-bar-fill"
-                      style={{ width: `${pct}%`, background: pct < 20 ? "#ef4444" : "#d97706" }}/>
+                      style={{
+                        width: `${Math.min(item.stock * 10, 100)}%`,
+                        background: item.stock === 0 ? "#ef4444" : "#d97706"
+                      }}/>
                   </div>
-                  <p className="low-stock-hint">{pct}% of minimum stock</p>
+                  <p className="low-stock-hint">{item.status}</p>
                 </div>
-              );
-            })}
-          </div>
-          <button className="restock-btn">Restock All</button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Coming Soon placeholder ────────────────────────
-function ComingSoon({ label, icon }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", height: "60vh", gap: 12, color: "#9ca3af" }}>
-      <span style={{ fontSize: 48 }}>{icon}</span>
-      <p style={{ fontSize: 18, fontWeight: 600, color: "#4b5563" }}>{label}</p>
-      <p style={{ fontSize: 14 }}>Coming soon...</p>
     </div>
   );
 }

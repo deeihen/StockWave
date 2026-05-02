@@ -46,6 +46,7 @@ namespace StockWave.Server.Controllers
             };
 
             _db.Products.Add(product);
+            await _db.SaveChangesAsync();
 
             _db.StockTransactions.Add(new StockTransaction
             {
