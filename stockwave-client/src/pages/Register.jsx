@@ -58,26 +58,7 @@ export default function Register({ onGoLogin }) {
   }
 };
 
-  if (success) {
-    return (
-      <div className="reg-root">
-        <div className="reg-success-wrap">
-          <div className="reg-success-card">
-            <div className="success-icon">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                <circle cx="20" cy="20" r="20" fill="#e8f5ee"/>
-                <path d="M12 20l6 6 10-12" stroke="#1a6b3c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <h2 className="success-title">Account Created!</h2>
-            <p className="success-sub">Your StockWave account is ready. You can now sign in.</p>
-            <button className="success-btn" onClick={onGoLogin}>
-              Go to Login
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  if (success) { onGoLogin();
   }
 
   return (
