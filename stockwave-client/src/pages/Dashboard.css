@@ -134,6 +134,7 @@ body { font-family: 'Figtree', sans-serif; background: var(--bg); }
   color: var(--text-dark);
   white-space: nowrap;
 }
+.user-role { font-size: 11px; color: var(--text-light); white-space: nowrap; }
 
 .logout-btn {
   background: none; border: none;
