@@ -477,3 +477,4 @@ C:\Users\Client\Desktop\New folder\StockWave.Server\obj\Debug\net10.0\refint\Sto
 C:\Users\Client\Desktop\New folder\StockWave.Server\obj\Debug\net10.0\StockWave.Server.pdb
 C:\Users\Client\Desktop\New folder\StockWave.Server\obj\Debug\net10.0\StockWave.Server.genruntimeconfig.cache
 C:\Users\Client\Desktop\New folder\StockWave.Server\obj\Debug\net10.0\ref\StockWave.Server.dll
+C:\Users\Client\Desktop\New folder\StockWave.Server\bin\Debug\net10.0\BCrypt.Net-Next.dll

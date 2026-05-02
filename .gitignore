@@ -1,0 +1,12 @@
+# .NET
+StockWave.Server/bin/
+StockWave.Server/obj/
+StockWave.Server/*.db
+
+# React
+stockwave-client/node_modules/
+stockwave-client/dist/
+
+# General
+.env
+.env.local

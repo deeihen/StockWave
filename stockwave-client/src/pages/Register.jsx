@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./Register.css";
+import { registerUser } from "../api/stockwaveApi";
 
 export default function Register({ onGoLogin }) {
   const [form, setForm] = useState({
@@ -33,20 +34,29 @@ export default function Register({ onGoLogin }) {
     return null;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const validationError = validate();
-    if (validationError) { setError(validationError); return; }
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  const validationError = validate();
+  if (validationError) { setError(validationError); return; }
 
-    setLoading(true);
-    setError("");
+  setLoading(true);
+  setError("");
 
-    // Simulate API call — replace with real /api/auth/register later
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
-    }, 1500);
-  };
+  try {
+    await registerUser({
+      fullName: form.fullName,
+      username: form.username,
+      email: form.email,
+      password: form.password,
+      role: form.role
+    });
+    setSuccess(true);
+  } catch (err) {
+    setError(err.response?.data?.message || "Registration failed. Try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (success) {
     return (

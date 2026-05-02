@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./Login.css";
+import { loginUser } from "../api/stockwaveApi";
 
 export default function Login({ onGoRegister, onLoginSuccess }) {
   const [form, setForm] = useState({ username: "", password: "", remember: false });
@@ -14,24 +15,25 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.username || !form.password) {
-      setError("Please fill in all fields.");
-      return;
-    }
-    setLoading(true);
-    setError("");
+  e.preventDefault();
+  if (!form.username || !form.password) {
+    setError("Please fill in all fields.");
+    return;
+  }
+  setLoading(true);
+  setError("");
 
-    // Simulate API call — replace with real /api/auth/login later
-    setTimeout(() => {
-      setLoading(false);
-      if (form.username === "1" && form.password === "1") {
-        if (onLoginSuccess) onLoginSuccess();
-      } else {
-        setError("Invalid username or password.");
-      }
-    }, 1500);
-  };
+  try {
+    const res = await loginUser({ username: form.username, password: form.password });
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+    if (onLoginSuccess) onLoginSuccess();
+  } catch (err) {
+    setError(err.response?.data?.message || "Invalid username or password.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="login-root">

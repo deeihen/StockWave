@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "u/dK9MTnnAs=",
+  "dgSpecHash": "vn3ur70gtc0=",
   "success": true,
   "projectFilePath": "C:\\Users\\Client\\Desktop\\New folder\\StockWave.Server\\StockWave.Server.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\Client\\.nuget\\packages\\bcrypt.net-next\\4.1.0\\bcrypt.net-next.4.1.0.nupkg.sha512",
     "C:\\Users\\Client\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Client\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\10.0.7\\microsoft.aspnetcore.authentication.jwtbearer.10.0.7.nupkg.sha512",
     "C:\\Users\\Client\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.7\\microsoft.aspnetcore.openapi.10.0.7.nupkg.sha512",
