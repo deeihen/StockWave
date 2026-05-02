@@ -3233,24 +3233,31 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Client\\.nuget\\packages\\": {}
+    "C:\\Users\\user\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Client\\Desktop\\StockWave\\StockWave.Server\\StockWave.Server.csproj",
+      "projectUniqueName": "C:\\Users\\user\\Desktop\\den\\StockWave\\StockWave.Server\\StockWave.Server.csproj",
       "projectName": "StockWave.Server",
-      "projectPath": "C:\\Users\\Client\\Desktop\\StockWave\\StockWave.Server\\StockWave.Server.csproj",
-      "packagesPath": "C:\\Users\\Client\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Client\\Desktop\\StockWave\\StockWave.Server\\obj\\",
+      "projectPath": "C:\\Users\\user\\Desktop\\den\\StockWave\\StockWave.Server\\StockWave.Server.csproj",
+      "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\user\\Desktop\\den\\StockWave\\StockWave.Server\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\Client\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {

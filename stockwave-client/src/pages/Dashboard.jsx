@@ -26,11 +26,11 @@ const categoryData = [
 ];
 
 const recentActivity = [
-  { id: 1, action: "Added", item: "Wireless Keyboard", qty: 50, user: "Admin", time: "2 min ago", type: "in" },
-  { id: 2, action: "Removed", item: "USB-C Cable", qty: 12, user: "Staff", time: "15 min ago", type: "out" },
-  { id: 3, action: "Updated", item: "Office Chair", qty: 5, user: "Manager", time: "1 hr ago", type: "update" },
-  { id: 4, action: "Added", item: "Monitor Stand", qty: 30, user: "Admin", time: "2 hr ago", type: "in" },
-  { id: 5, action: "Removed", item: "HDMI Cable", qty: 8, user: "Staff", time: "3 hr ago", type: "out" },
+  { id: 1, action: "Added", item: "Wireless Keyboard", qty: 50, user: "Avery Chen", time: "2 min ago", type: "in" },
+  { id: 2, action: "Removed", item: "USB-C Cable", qty: 12, user: "Jordan Lee", time: "15 min ago", type: "out" },
+  { id: 3, action: "Updated", item: "Office Chair", qty: 5, user: "Riley Patel", time: "1 hr ago", type: "update" },
+  { id: 4, action: "Added", item: "Monitor Stand", qty: 30, user: "Morgan Smith", time: "2 hr ago", type: "in" },
+  { id: 5, action: "Removed", item: "HDMI Cable", qty: 8, user: "Casey Nguyen", time: "3 hr ago", type: "out" },
 ];
 
 const lowStockItems = [
@@ -118,11 +118,10 @@ export default function Dashboard({ onLogout }) {
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">A</div>
+            <div className="user-avatar">AC</div>
             {sidebarOpen && (
               <div className="user-details">
-                <p className="user-name">Admin</p>
-                <p className="user-role">Administrator</p>
+                <p className="user-name">Avery Chen</p>
               </div>
             )}
           </div>
@@ -140,7 +139,7 @@ export default function Dashboard({ onLogout }) {
         <header className="dash-header">
           <div className="header-left">
             <h1 className="page-title">Dashboard</h1>
-            <p className="page-sub">Welcome back, Admin — here's what's happening today.</p>
+            <p className="page-sub">Welcome back, Avery — here's what's happening today.</p>
           </div>
           <div className="header-right">
             <div className="search-wrap">

@@ -8,7 +8,6 @@ export default function Register({ onGoLogin }) {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "staff",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -94,10 +93,6 @@ export default function Register({ onGoLogin }) {
               <span className="feat-icon"></span>
               <span>Real-time inventory reports</span>
             </li>
-            <li>
-              <span className="feat-icon"></span>
-              <span>Role-based access control</span>
-            </li>
           </ul>
         </div>
         <div className="left-decoration">
@@ -153,39 +148,19 @@ export default function Register({ onGoLogin }) {
               </div>
             </div>
 
-            {/* Two columns: Username + Role */}
-            <div className="field-row">
-              <div className="field-group">
-                <label className="field-label" htmlFor="username">Username</label>
-                <div className="field-wrap">
-                  <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-                    <circle cx="12" cy="7" r="4" stroke="#aaa" strokeWidth="1.5"/>
-                  </svg>
-                  <input
-                    id="username" name="username" type="text"
-                    className="field-input" placeholder="username"
-                    value={form.username} onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="role">Role</label>
-                <div className="field-wrap">
-                  <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2l3 6.5L22 9.3l-5 4.9 1.2 6.8L12 17.8l-6.2 3.2L7 14.2 2 9.3l7-.8L12 2z" stroke="#aaa" strokeWidth="1.5" strokeLinejoin="round"/>
-                  </svg>
-                  <select
-                    id="role" name="role"
-                    className="field-input field-select"
-                    value={form.role} onChange={handleChange}
-                  >
-                    <option value="staff">Staff</option>
-                    <option value="manager">Manager</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
+            {/* Username */}
+            <div className="field-group">
+              <label className="field-label" htmlFor="username">Username</label>
+              <div className="field-wrap">
+                <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="12" cy="7" r="4" stroke="#aaa" strokeWidth="1.5"/>
+                </svg>
+                <input
+                  id="username" name="username" type="text"
+                  className="field-input" placeholder="username"
+                  value={form.username} onChange={handleChange}
+                />
               </div>
             </div>
 

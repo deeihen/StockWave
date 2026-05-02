@@ -25,7 +25,7 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
     // Simulate API call — replace with real /api/auth/login later
     setTimeout(() => {
       setLoading(false);
-      if (form.username === "admin" && form.password === "admin123") {
+      if (form.username === "1" && form.password === "1") {
         if (onLoginSuccess) onLoginSuccess();
       } else {
         setError("Invalid username or password.");
