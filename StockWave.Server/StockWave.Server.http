@@ -1,0 +1,6 @@
+@StockWave.Server_HostAddress = http://localhost:5263
+
+GET {{StockWave.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
