@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import VoiceControl from "../components/VoiceControl";
 import "./Dashboard.css";
 import Inventory from "./Inventory";
 import Reports from "./Reports";
@@ -63,6 +64,12 @@ export default function Dashboard({ onLogout }) {
   ];
 
   const { title, sub } = pageTitles[activePage] || pageTitles.dashboard;
+
+  const handleVoiceCommand = (command, value) => {
+  if (command === "navigate") setActivePage(value);
+  if (command === "logout") onLogout();
+  if (command === "add_product") setActivePage("inventory");
+};
 
   const renderPage = () => {
     if (activePage === "inventory") return <Inventory />;
@@ -134,6 +141,7 @@ export default function Dashboard({ onLogout }) {
             <p className="page-sub">{sub}</p>
           </div>
           <div className="header-right">
+            <VoiceControl onCommand={handleVoiceCommand} />
             <div className="search-wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <circle cx="11" cy="11" r="8" stroke="#aaa" strokeWidth="1.5"/>
