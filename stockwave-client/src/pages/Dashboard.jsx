@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import VoiceControl from "../components/VoiceControl";
+import GestureControl from "../components/GestureControl";
 import "./Dashboard.css";
 import Inventory from "./Inventory";
 import Reports from "./Reports";
@@ -71,6 +72,23 @@ export default function Dashboard({ onLogout }) {
   if (command === "add_product") setActivePage("inventory");
 };
 
+  const handleGestureCommand = (gesture) => {
+    const pages = ["dashboard", "inventory", "reports", "users", "settings"];
+    const currentIndex = pages.indexOf(activePage);
+
+    if (gesture === "open_palm") setActivePage("dashboard");
+    if (gesture === "fist") setActivePage("dashboard");
+    if (gesture === "point_up") {
+      const prev = pages[currentIndex - 1];
+      if (prev) setActivePage(prev);
+    }
+    if (gesture === "peace") {
+      const next = pages[currentIndex + 1];
+      if (next) setActivePage(next);
+    }
+    if (gesture === "thumbs_up") setActivePage("inventory");
+  };
+
   const renderPage = () => {
     if (activePage === "inventory") return <Inventory />;
     if (activePage === "reports") return <Reports />;
@@ -141,6 +159,7 @@ export default function Dashboard({ onLogout }) {
             <p className="page-sub">{sub}</p>
           </div>
           <div className="header-right">
+            <GestureControl onGesture={handleGestureCommand} />
             <VoiceControl onCommand={handleVoiceCommand} />
             <div className="search-wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -246,7 +265,7 @@ function DashboardHome() {
                     <td className="qty-cell">{a.quantity}</td>
                     <td className="user-cell">{a.performedBy}</td>
                     <td className="time-cell">
-                      {new Date(a.timestamp).toLocaleString()}
+                      {new Date(a.timestamp).toLocaleString("en-PH")}
                     </td>
                   </tr>
                 ))}

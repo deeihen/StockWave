@@ -170,7 +170,7 @@ export default function Users() {
         name: u.fullName,        // ← ADD THIS LINE
         avatar: u.fullName?.[0]?.toUpperCase() || "?",
         lastLogin: u.lastLogin
-          ? new Date(u.lastLogin).toLocaleString()
+          ? new Date(u.lastLogin).toLocaleString("en-PH", { timeZone: "Asia/Manila" })
           : "Never"
       })));
     } catch {
