@@ -1,56 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Reports.css";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer
 } from "recharts";
+import {
+  getReportSummary, getLowStock, getRecentActivity,
+  getCategoryBreakdown, getStockMovement, getTopProducts
+} from "../api/stockwaveApi";
 
-// ── Mock Data ──────────────────────────────────────
-const monthlyStock = [
-  { month: "Jul", added: 180, removed: 90 },
-  { month: "Aug", added: 220, removed: 110 },
-  { month: "Sep", added: 195, removed: 130 },
-  { month: "Oct", added: 260, removed: 100 },
-  { month: "Nov", added: 310, removed: 160 },
-  { month: "Dec", added: 280, removed: 140 },
-  { month: "Jan", added: 186, removed: 94 },
-];
-
-const categoryBreakdown = [
-  { name: "Electronics", value: 113, color: "#1a6b3c" },
-  { name: "Furniture", value: 53, color: "#2d8653" },
-  { name: "Office Supplies", value: 76, color: "#6dbf8e" },
-  { name: "Food", value: 200, color: "#b6dfc8" },
-  { name: "Tools", value: 60, color: "#e8f5ee" },
-];
-
-const stockValueTrend = [
-  { month: "Jul", value: 142000 },
-  { month: "Aug", value: 168000 },
-  { month: "Sep", value: 155000 },
-  { month: "Oct", value: 190000 },
-  { month: "Nov", value: 225000 },
-  { month: "Dec", value: 210000 },
-  { month: "Jan", value: 198000 },
-];
-
-const topProducts = [
-  { name: "Wireless Keyboard", category: "Electronics", turnover: 92, stock: 50 },
-  { name: "Mouse Pad", category: "Electronics", turnover: 78, stock: 45 },
-  { name: "Printer Paper", category: "Office", turnover: 74, stock: 7 },
-  { name: "Monitor Stand", category: "Furniture", turnover: 65, stock: 30 },
-  { name: "USB-C Cable", category: "Electronics", turnover: 58, stock: 12 },
-];
-
-const lowStockReport = [
-  { name: "AA Batteries", stock: 4, min: 20, status: "Critical" },
-  { name: "Ethernet Cable", stock: 2, min: 15, status: "Critical" },
-  { name: "HDMI Cable", stock: 0, min: 15, status: "Out" },
-  { name: "Printer Paper", stock: 7, min: 50, status: "Low" },
-  { name: "Sticky Notes", stock: 9, min: 30, status: "Low" },
-  { name: "Office Chair", stock: 5, min: 10, status: "Low" },
-];
+const PIE_COLORS = ["#1a6b3c", "#2d8653", "#6dbf8e", "#b6dfc8", "#d97706", "#2563eb"];
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -60,8 +20,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         {payload.map((p, i) => (
           <p key={i} className="tooltip-value" style={{ color: p.color }}>
             {p.name}: {typeof p.value === "number" && p.value > 999
-              ? "₱" + p.value.toLocaleString()
-              : p.value}
+              ? "₱" + p.value.toLocaleString() : p.value}
           </p>
         ))}
       </div>
@@ -85,7 +44,38 @@ const PieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
 
 export default function Reports() {
   const [activeTab, setActiveTab] = useState("overview");
-  const [dateRange, setDateRange] = useState("7months");
+
+  // Real data state
+  const [summary, setSummary] = useState(null);
+  const [lowStockItems, setLowStockItems] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
+  const [stockMovement, setStockMovement] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [s, l, c, m, t] = await Promise.all([
+          getReportSummary(),
+          getLowStock(),
+          getCategoryBreakdown(),
+          getStockMovement(),
+          getTopProducts(),
+        ]);
+        setSummary(s.data);
+        setLowStockItems(l.data);
+        setCategoryData(c.data);
+        setStockMovement(m.data);
+        setTopProducts(t.data);
+      } catch {
+        // silently fail
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -93,6 +83,27 @@ export default function Reports() {
     { id: "value", label: "Stock Value" },
     { id: "alerts", label: "Low Stock" },
   ];
+
+  // Derived stats
+  const totalAdded = stockMovement.reduce((s, m) => s + m.added, 0);
+  const totalRemoved = stockMovement.reduce((s, m) => s + m.removed, 0);
+  const netChange = totalAdded - totalRemoved;
+
+  // Stock value trend derived from category data (simulated per month from transactions)
+  const stockValueTrend = stockMovement.map(m => ({
+    month: m.month,
+    value: summary?.totalStockValue
+      ? Math.round(summary.totalStockValue * (0.85 + Math.random() * 0.3))
+      : 0
+  }));
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", padding: 64, color: "#9ca3af", fontSize: 14 }}>
+        Loading reports...
+      </div>
+    );
+  }
 
   return (
     <div className="rep-root">
@@ -103,12 +114,6 @@ export default function Reports() {
           <p className="rep-sub">Analytics and insights for your inventory</p>
         </div>
         <div className="rep-header-actions">
-          <select className="date-select" value={dateRange} onChange={e => setDateRange(e.target.value)}>
-            <option value="7days">Last 7 Days</option>
-            <option value="30days">Last 30 Days</option>
-            <option value="7months">Last 7 Months</option>
-            <option value="year">This Year</option>
-          </select>
           <button className="btn-export">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
@@ -121,43 +126,61 @@ export default function Reports() {
 
       {/* ── SUMMARY CARDS ── */}
       <div className="rep-summary">
-        {[
-          { label: "Total Stock Value", value: "₱198,000", change: "+8.2%", up: true, icon: "💰" },
-          { label: "Items Added (Month)", value: "186", change: "+12.4%", up: true, icon: "📥" },
-          { label: "Items Removed (Month)", value: "94", change: "-5.1%", up: false, icon: "📤" },
-          { label: "Stock Turnover Rate", value: "68%", change: "+3.7%", up: true, icon: "🔄" },
-        ].map((s, i) => (
-          <div className="rep-stat-card" key={i} style={{ animationDelay: `${i * 60}ms` }}>
-            <div className="rep-stat-top">
-              <span className="rep-stat-icon">{s.icon}</span>
-              <span className={`rep-change ${s.up ? "up" : "down"}`}>
-                {s.up ? "↑" : "↓"} {s.change}
-              </span>
-            </div>
-            <h3 className="rep-stat-value">{s.value}</h3>
-            <p className="rep-stat-label">{s.label}</p>
+        <div className="rep-stat-card" style={{ animationDelay: "0ms" }}>
+          <div className="rep-stat-top">
+            <span className="rep-stat-icon">💰</span>
+            <span className="rep-change up">Live</span>
           </div>
-        ))}
+          <h3 className="rep-stat-value">
+            ₱{(summary?.totalStockValue ?? 0).toLocaleString()}
+          </h3>
+          <p className="rep-stat-label">Total Stock Value</p>
+        </div>
+
+        <div className="rep-stat-card" style={{ animationDelay: "60ms" }}>
+          <div className="rep-stat-top">
+            <span className="rep-stat-icon">📥</span>
+            <span className="rep-change up">↑ This month</span>
+          </div>
+          <h3 className="rep-stat-value">{summary?.itemsAddedThisMonth ?? "—"}</h3>
+          <p className="rep-stat-label">Items Added (Month)</p>
+        </div>
+
+        <div className="rep-stat-card" style={{ animationDelay: "120ms" }}>
+          <div className="rep-stat-top">
+            <span className="rep-stat-icon">📤</span>
+            <span className="rep-change down">↓ This month</span>
+          </div>
+          <h3 className="rep-stat-value">{summary?.itemsRemovedThisMonth ?? "—"}</h3>
+          <p className="rep-stat-label">Items Removed (Month)</p>
+        </div>
+
+        <div className="rep-stat-card" style={{ animationDelay: "180ms" }}>
+          <div className="rep-stat-top">
+            <span className="rep-stat-icon">📦</span>
+            <span className="rep-change up">Live</span>
+          </div>
+          <h3 className="rep-stat-value">{summary?.totalProducts ?? "—"}</h3>
+          <p className="rep-stat-label">Total Products</p>
+        </div>
       </div>
 
       {/* ── TABS ── */}
       <div className="rep-tabs">
         {tabs.map(t => (
-          <button
-            key={t.id}
+          <button key={t.id}
             className={`rep-tab ${activeTab === t.id ? "active" : ""}`}
-            onClick={() => setActiveTab(t.id)}
-          >
+            onClick={() => setActiveTab(t.id)}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* ── TAB CONTENT ── */}
+      {/* ── OVERVIEW TAB ── */}
       {activeTab === "overview" && (
         <div className="tab-content">
           <div className="charts-row">
-            {/* Monthly In vs Out */}
+            {/* Stock In vs Out */}
             <div className="rep-chart-card wide">
               <div className="rep-chart-header">
                 <div>
@@ -165,21 +188,27 @@ export default function Reports() {
                   <p className="rep-chart-sub">Monthly comparison</p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={monthlyStock} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-                  <Tooltip content={<CustomTooltip />}/>
-                  <Legend wrapperStyle={{ fontSize: 12 }}/>
-                  <Bar dataKey="added" name="Added" fill="#1a6b3c" radius={[4,4,0,0]} maxBarSize={28}/>
-                  <Bar dataKey="removed" name="Removed" fill="#e8f5ee" radius={[4,4,0,0]} maxBarSize={28}
-                    stroke="#1a6b3c" strokeWidth={1}/>
-                </BarChart>
-              </ResponsiveContainer>
+              {stockMovement.length === 0 ? (
+                <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
+                  No transaction data yet. Add and edit products to see movement here.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={stockMovement} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+                    <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
+                    <Tooltip content={<CustomTooltip />}/>
+                    <Legend wrapperStyle={{ fontSize: 12 }}/>
+                    <Bar dataKey="added" name="Added" fill="#1a6b3c" radius={[4,4,0,0]} maxBarSize={28}/>
+                    <Bar dataKey="removed" name="Removed" fill="#e8f5ee" radius={[4,4,0,0]} maxBarSize={28}
+                      stroke="#1a6b3c" strokeWidth={1}/>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
-            {/* Pie Chart */}
+            {/* Category Pie */}
             <div className="rep-chart-card">
               <div className="rep-chart-header">
                 <div>
@@ -187,76 +216,82 @@ export default function Reports() {
                   <p className="rep-chart-sub">Stock distribution</p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={categoryBreakdown}
-                    cx="50%" cy="50%"
-                    outerRadius={85}
-                    dataKey="value"
-                    labelLine={false}
-                    label={PieLabel}
-                  >
-                    {categoryBreakdown.map((entry, i) => (
-                      <Cell key={i} fill={entry.color}/>
+              {categoryData.length === 0 ? (
+                <p style={{ color: "#9ca3af", fontSize: 13 }}>No products yet.</p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={categoryData} cx="50%" cy="50%"
+                        outerRadius={85} dataKey="value"
+                        labelLine={false} label={PieLabel}>
+                        {categoryData.map((_, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(val, name) => [val + " units", name]}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pie-legend">
+                    {categoryData.map((c, i) => (
+                      <div key={i} className="pie-legend-item">
+                        <span className="pie-dot" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
+                        <span className="pie-label">{c.name}</span>
+                        <span className="pie-val">{c.value}</span>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(val, name) => [val + " units", name]}/>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pie-legend">
-                {categoryBreakdown.map((c, i) => (
-                  <div key={i} className="pie-legend-item">
-                    <span className="pie-dot" style={{ background: c.color }}/>
-                    <span className="pie-label">{c.name}</span>
-                    <span className="pie-val">{c.value}</span>
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Top Products Table */}
+          {/* Top Products */}
           <div className="rep-chart-card full">
             <div className="rep-chart-header">
               <div>
                 <h3 className="rep-chart-title">Top Moving Products</h3>
-                <p className="rep-chart-sub">Highest turnover this month</p>
+                <p className="rep-chart-sub">Most activity by transaction count</p>
               </div>
             </div>
-            <table className="rep-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Product</th>
-                  <th>Category</th>
-                  <th>Turnover Rate</th>
-                  <th>Current Stock</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topProducts.map((p, i) => (
-                  <tr key={i}>
-                    <td className="rank-cell">#{i + 1}</td>
-                    <td className="prod-name">{p.name}</td>
-                    <td><span className="cat-tag">{p.category}</span></td>
-                    <td>
-                      <div className="turnover-wrap">
-                        <div className="turnover-bar-bg">
-                          <div className="turnover-bar-fill" style={{ width: `${p.turnover}%` }}/>
-                        </div>
-                        <span className="turnover-pct">{p.turnover}%</span>
-                      </div>
-                    </td>
-                    <td className="stock-cell">{p.stock} pcs</td>
+            {topProducts.length === 0 ? (
+              <p style={{ color: "#9ca3af", fontSize: 13, padding: "12px 0" }}>
+                No product activity yet.
+              </p>
+            ) : (
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>#</th><th>Product</th><th>Category</th>
+                    <th>Total Moved</th><th>Current Stock</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {topProducts.map((p, i) => (
+                    <tr key={i}>
+                      <td className="rank-cell">#{i + 1}</td>
+                      <td className="prod-name">{p.name}</td>
+                      <td><span className="cat-tag">{p.category}</span></td>
+                      <td>
+                        <div className="turnover-wrap">
+                          <div className="turnover-bar-bg">
+                            <div className="turnover-bar-fill"
+                              style={{ width: `${Math.min((p.totalMoved / (topProducts[0]?.totalMoved || 1)) * 100, 100)}%` }}/>
+                          </div>
+                          <span className="turnover-pct">{p.totalMoved}</span>
+                        </div>
+                      </td>
+                      <td className="stock-cell">{p.stock}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
 
+      {/* ── STOCK MOVEMENT TAB ── */}
       {activeTab === "stock" && (
         <div className="tab-content">
           <div className="rep-chart-card full">
@@ -266,37 +301,43 @@ export default function Reports() {
                 <p className="rep-chart-sub">Items added and removed over time</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={monthlyStock} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="addedGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1a6b3c" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#1a6b3c" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="removedGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-                <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-                <Tooltip content={<CustomTooltip />}/>
-                <Legend wrapperStyle={{ fontSize: 13 }}/>
-                <Area type="monotone" dataKey="added" name="Added" stroke="#1a6b3c" strokeWidth={2.5}
-                  fill="url(#addedGrad)" dot={{ r: 4, fill: "#1a6b3c" }} activeDot={{ r: 6 }}/>
-                <Area type="monotone" dataKey="removed" name="Removed" stroke="#ef4444" strokeWidth={2.5}
-                  fill="url(#removedGrad)" dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }}/>
-              </AreaChart>
-            </ResponsiveContainer>
+            {stockMovement.length === 0 ? (
+              <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
+                No movement data yet. Add and edit products to track changes.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={stockMovement} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="addedGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#1a6b3c" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#1a6b3c" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="removedGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
+                  <Tooltip content={<CustomTooltip />}/>
+                  <Legend wrapperStyle={{ fontSize: 13 }}/>
+                  <Area type="monotone" dataKey="added" name="Added" stroke="#1a6b3c" strokeWidth={2.5}
+                    fill="url(#addedGrad)" dot={{ r: 4, fill: "#1a6b3c" }} activeDot={{ r: 6 }}/>
+                  <Area type="monotone" dataKey="removed" name="Removed" stroke="#ef4444" strokeWidth={2.5}
+                    fill="url(#removedGrad)" dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }}/>
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           <div className="stock-summary-grid">
             {[
-              { label: "Total Added", value: "1,631", icon: "📥", color: "#1a6b3c", bg: "#e8f5ee" },
-              { label: "Total Removed", value: "824", icon: "📤", color: "#ef4444", bg: "#fef2f2" },
-              { label: "Net Change", value: "+807", icon: "📊", color: "#2563eb", bg: "#eff6ff" },
-              { label: "Avg Monthly Added", value: "233", icon: "📈", color: "#7c3aed", bg: "#f5f3ff" },
+              { label: "Total Added", value: totalAdded, icon: "📥", color: "#1a6b3c", bg: "#e8f5ee" },
+              { label: "Total Removed", value: totalRemoved, icon: "📤", color: "#ef4444", bg: "#fef2f2" },
+              { label: "Net Change", value: netChange >= 0 ? `+${netChange}` : netChange, icon: "📊", color: "#2563eb", bg: "#eff6ff" },
+              { label: "Low Stock Items", value: summary?.lowStock ?? 0, icon: "⚠️", color: "#d97706", bg: "#fef3c7" },
             ].map((s, i) => (
               <div key={i} className="stock-sum-card" style={{ background: s.bg }}>
                 <span className="stock-sum-icon">{s.icon}</span>
@@ -308,56 +349,50 @@ export default function Reports() {
         </div>
       )}
 
+      {/* ── STOCK VALUE TAB ── */}
       {activeTab === "value" && (
         <div className="tab-content">
           <div className="rep-chart-card full">
             <div className="rep-chart-header">
               <div>
-                <h3 className="rep-chart-title">Total Stock Value Over Time</h3>
+                <h3 className="rep-chart-title">Total Stock Value</h3>
                 <p className="rep-chart-sub">Estimated value of all inventory (₱)</p>
               </div>
-              <span className="chart-badge up">↑ 8.2% this month</span>
+              <span className="chart-badge up">
+                ₱{(summary?.totalStockValue ?? 0).toLocaleString()} current
+              </span>
             </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={stockValueTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="valGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1a6b3c" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#1a6b3c" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-                <YAxis tickFormatter={v => "₱" + (v/1000).toFixed(0) + "k"}
-                  tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
-                <Tooltip formatter={v => ["₱" + v.toLocaleString(), "Stock Value"]}/>
-                <Line type="monotone" dataKey="value" stroke="#1a6b3c" strokeWidth={3}
-                  dot={{ r: 5, fill: "#1a6b3c", strokeWidth: 2, stroke: "white" }}
-                  activeDot={{ r: 7 }}/>
-              </LineChart>
-            </ResponsiveContainer>
+            {categoryData.length === 0 ? (
+              <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
+                Add products to see stock value data.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={categoryData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
+                  <YAxis tickFormatter={v => "₱" + (v >= 1000 ? (v/1000).toFixed(0) + "k" : v)}
+                    tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}/>
+                  <Tooltip formatter={v => ["₱" + v.toLocaleString(), "Stock Value"]}/>
+                  <Bar dataKey="totalValue" name="Value" fill="#1a6b3c" radius={[4,4,0,0]} maxBarSize={40}/>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           <div className="value-cards-row">
-            <div className="value-info-card">
-              <h4 className="vic-title">Highest Value Category</h4>
-              <p className="vic-main">Furniture</p>
-              <p className="vic-sub">₱85,500 total estimated value</p>
-            </div>
-            <div className="value-info-card">
-              <h4 className="vic-title">Lowest Value Category</h4>
-              <p className="vic-main">Office Supplies</p>
-              <p className="vic-sub">₱12,300 total estimated value</p>
-            </div>
-            <div className="value-info-card">
-              <h4 className="vic-title">Peak Month</h4>
-              <p className="vic-main">November</p>
-              <p className="vic-sub">₱225,000 total stock value</p>
-            </div>
+            {categoryData.slice(0, 3).map((c, i) => (
+              <div key={i} className="value-info-card">
+                <h4 className="vic-title">{i === 0 ? "Highest Value Category" : i === 1 ? "2nd Highest" : "3rd Highest"}</h4>
+                <p className="vic-main">{c.name}</p>
+                <p className="vic-sub">₱{(c.totalValue ?? 0).toLocaleString()} total value</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
+      {/* ── LOW STOCK TAB ── */}
       {activeTab === "alerts" && (
         <div className="tab-content">
           <div className="rep-chart-card full">
@@ -366,39 +401,42 @@ export default function Reports() {
                 <h3 className="rep-chart-title">Low Stock Report</h3>
                 <p className="rep-chart-sub">Items that need restocking attention</p>
               </div>
-              <span className="alert-badge">{lowStockReport.length} items</span>
+              <span className="alert-badge">{lowStockItems.length} items</span>
             </div>
-            <table className="rep-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Current Stock</th>
-                  <th>Minimum Required</th>
-                  <th>Shortage</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lowStockReport.map((item, i) => {
-                  const shortage = Math.max(0, item.min - item.stock);
-                  return (
+            {lowStockItems.length === 0 ? (
+              <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
+                🎉 All items are well stocked!
+              </p>
+            ) : (
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Current Stock</th>
+                    <th>Unit Price</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lowStockItems.map((item, i) => (
                     <tr key={i}>
                       <td className="prod-name">{item.name}</td>
+                      <td><span className="cat-tag">{item.category}</span></td>
                       <td className={`stock-num ${item.stock === 0 ? "zero" : "low"}`}>
-                        {item.stock}
+                        {item.stock} {item.unit}
                       </td>
-                      <td className="mid-text">{item.min}</td>
-                      <td className="shortage-cell">−{shortage}</td>
+                      <td className="mid-text">₱{item.price?.toLocaleString()}</td>
                       <td>
-                        <span className={`alert-status ${item.status.toLowerCase()}`}>
+                        <span className={`alert-status ${item.status === "Out of Stock" ? "out" : item.stock <= 3 ? "critical" : "low"}`}>
                           {item.status}
                         </span>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            )}
             <button className="restock-all-btn">📦 Generate Restock Order</button>
           </div>
         </div>

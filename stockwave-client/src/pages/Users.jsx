@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getUsers, updateUser, deleteUser } from "../api/stockwaveApi";
 import "./Users.css";
 
 // ── Mock Data ──────────────────────────────────────
@@ -156,7 +157,28 @@ function DeleteModal({ user, onClose, onConfirm }) {
 
 // ── Main Component ─────────────────────────────────
 export default function Users() {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await getUsers();
+      setUsers(res.data.map(u => ({
+        ...u,
+        name: u.fullName,        // ← ADD THIS LINE
+        avatar: u.fullName?.[0]?.toUpperCase() || "?",
+        lastLogin: u.lastLogin
+          ? new Date(u.lastLogin).toLocaleString()
+          : "Never"
+      })));
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  };
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -180,23 +202,44 @@ export default function Users() {
   const managerCount = users.filter(u => u.role === "Manager").length;
 
   // ── CRUD ──────────────────────────────────────
-  const handleAdd = (data) => {
-    const avatar = data.name[0].toUpperCase();
-    const lastLogin = "Never";
-    setUsers(prev => [{ ...data, id: Date.now(), avatar, lastLogin }, ...prev]);
+  const handleAdd = async (data) => {
+    // Users are created via Register page
+    // For now just refresh the list
+    await fetchUsers();
     setModal(null);
   };
 
-  const handleEdit = (data) => {
-    setUsers(prev => prev.map(u => u.id === modal.user.id ? { ...u, ...data } : u));
-    setModal(null);
+  const handleEdit = async (data) => {
+    try {
+      await updateUser(modal.user.id, {
+        fullName: data.name,
+        username: data.username,
+        email: data.email,
+        role: data.role,
+        status: data.status,
+      });
+      await fetchUsers();
+      setModal(null);
+    } catch {
+      alert("Failed to update user.");
+    }
   };
 
-  const handleDelete = () => {
-    setUsers(prev => prev.filter(u => u.id !== modal.user.id));
-    setModal(null);
+  const handleDelete = async () => {
+    try {
+      await deleteUser(modal.user.id);
+      await fetchUsers();
+      setModal(null);
+    } catch {
+      alert("Failed to delete user.");
+    }
   };
 
+  if (loading) return (
+    <div style={{ textAlign: "center", padding: 64, color: "#9ca3af", fontSize: 14 }}>
+      Loading users...
+    </div>
+  );
   return (
     <div className="usr-root">
       {/* ── PAGE HEADER ── */}
