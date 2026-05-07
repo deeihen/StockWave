@@ -73,7 +73,10 @@ namespace StockWave.Server.Controllers
                     user.Id,
                     user.FullName,
                     user.Username,
-                    user.Email
+                    user.Email,
+                    user.TwoFactorEnabled,
+                    user.LoginAlertsEnabled,
+                    user.SessionTimeoutMinutes
                 }
             });
         }
