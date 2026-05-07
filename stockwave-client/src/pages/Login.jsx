@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
 import { loginUser } from "../api/stockwaveApi";
+import jsQR from "jsqr";
 
 export default function Login({ onLoginSuccess, onGoRegister }) {
   const [activeTab, setActiveTab] = useState("credentials");
@@ -159,17 +160,6 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
 
     let cancelled = false;
 
-    const loadJsQrFromCdn = () =>
-      new Promise((resolve, reject) => {
-        if (window.jsQR) return resolve(window.jsQR);
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
-        s.async = true;
-        s.onload = () => resolve(window.jsQR);
-        s.onerror = () => reject(new Error("Failed to load jsQR from CDN"));
-        document.head.appendChild(s);
-      });
-
     const start = async () => {
       try {
         setQrError("");
@@ -224,22 +214,6 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
           }
         }
 
-        // Fallback to jsQR (imported or loaded from CDN)
-        let jsqr = null;
-        if (window.jsQR) {
-          jsqr = window.jsQR;
-        }
-        if (!jsqr) {
-          try {
-            jsqr = await loadJsQrFromCdn();
-          } catch {
-            stopQrScan();
-            setQrActive(false);
-            setQrError("QR scanner library failed to load.");
-            return;
-          }
-        }
-
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
@@ -268,7 +242,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
             canvas.height = cropSize;
             ctx.drawImage(videoRef.current, sourceX, sourceY, cropSize, cropSize, 0, 0, cropSize, cropSize);
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsqr(imageData.data, imageData.width, imageData.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
             if (code && code.data) {
               const rawValue = code.data.trim();
               if (markQrCandidate(rawValue)) {
