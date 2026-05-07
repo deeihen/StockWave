@@ -1,26 +1,32 @@
 {
   "format": 1,
   "restore": {
-    "/home/justin/Codes/CDull/StockWave/StockWave.Server/StockWave.Server.csproj": {}
+    "C:\\Users\\Bob\\Desktop\\Csharp\\StockWave.Server\\StockWave.Server.csproj": {}
   },
   "projects": {
-    "/home/justin/Codes/CDull/StockWave/StockWave.Server/StockWave.Server.csproj": {
+    "C:\\Users\\Bob\\Desktop\\Csharp\\StockWave.Server\\StockWave.Server.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/justin/Codes/CDull/StockWave/StockWave.Server/StockWave.Server.csproj",
+        "projectUniqueName": "C:\\Users\\Bob\\Desktop\\Csharp\\StockWave.Server\\StockWave.Server.csproj",
         "projectName": "StockWave.Server",
-        "projectPath": "/home/justin/Codes/CDull/StockWave/StockWave.Server/StockWave.Server.csproj",
-        "packagesPath": "/home/justin/.nuget/packages/",
-        "outputPath": "/home/justin/Codes/CDull/StockWave/StockWave.Server/obj/",
+        "projectPath": "C:\\Users\\Bob\\Desktop\\Csharp\\StockWave.Server\\StockWave.Server.csproj",
+        "packagesPath": "C:\\Users\\Bob\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Bob\\Desktop\\Csharp\\StockWave.Server\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "/home/justin/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\Bob\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
         ],
         "sources": {
-          "/usr/lib/dotnet/library-packs": {},
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -39,7 +45,7 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.100"
+        "SdkAnalysisLevel": "10.0.200"
       },
       "frameworks": {
         "net10.0": {
@@ -73,6 +79,10 @@
               "target": "Package",
               "version": "[10.0.7, )"
             },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[10.0.1, )"
+            },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[10.1.7, )"
@@ -97,7 +107,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/10.0.107/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.202/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

@@ -5,8 +5,8 @@ Touchless Inventory Management System with Gesture and Voice Controls.
 
 ## Tech Stack
 - **Frontend:** React (Vite)
-- **Backend:** ASP.NET Core Web API (.NET 8)
-- **Database:** SQLite (local)
+- **Backend:** ASP.NET Core Web API (.NET 10)
+- **Database:** PostgreSQL (local)
 
 ---
 
@@ -42,6 +42,15 @@ dotnet run
 ```
 Backend runs at: `http://localhost:5258`
 Swagger docs at: `http://localhost:5258/swagger`
+
+Database connection uses PostgreSQL at `localhost:5432` with the connection string in `StockWave.Server/appsettings.json`.
+
+If Docker is installed, you can start Postgres with:
+```bash
+docker run --name stockwave-db -e POSTGRES_PASSWORD=yourpassword -e POSTGRES_DB=stockwave -p 5432:5432 -d postgres:16
+```
+
+If you do not have Docker, install PostgreSQL directly from [postgresql.org](https://www.postgresql.org/download/), then use the same host, port, database, username, and password in `appsettings.json`.
 
 ### 3. Frontend Setup
 ```bash
