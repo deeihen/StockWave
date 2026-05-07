@@ -125,6 +125,18 @@
   margin-top: 4px;
 }
 
+.notif-delete-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #d1d5db;
+  cursor: pointer;
+  padding: 4px 8px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.notif-delete-btn:hover { color: #ef4444; }
+
 @media (max-width: 480px) {
   .notif-panel {
     width: calc(100vw - 32px);

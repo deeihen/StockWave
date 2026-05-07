@@ -10,5 +10,6 @@ namespace StockWave.Server.Data
         public DbSet<User> Users => Set<User>();
         public DbSet<Product> Products => Set<Product>();
         public DbSet<StockTransaction> StockTransactions => Set<StockTransaction>();
+        public DbSet<Notification> Notifications => Set<Notification>();
     }
 }
