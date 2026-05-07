@@ -8,6 +8,7 @@ export function useVoice({ onCommand, enabled = true }) {
   // Process transcript when it changes
   useEffect(() => {
     if (!transcript) return;
+    console.log("Transcript:", transcript);
     const cmd = transcript.toLowerCase().trim();
 
     if (cmd.includes("go to dashboard") || cmd.includes("dashboard")) {
@@ -27,11 +28,15 @@ export function useVoice({ onCommand, enabled = true }) {
     }
 
     resetTranscript();
-  }, [transcript]);
+  }, [transcript, onCommand, resetTranscript]);
 
   const startListening = useCallback(() => {
-    SpeechRecognition.startListening({ continuous: true, language: "en-US" });
-  }, []);
+  SpeechRecognition.startListening({ 
+    continuous: true, 
+    language: "en-US",
+    interimResults: true  // ADD THIS
+  });
+}, []);
 
   const stopListening = useCallback(() => {
     SpeechRecognition.stopListening();
