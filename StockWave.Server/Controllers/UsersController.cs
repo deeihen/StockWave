@@ -19,26 +19,22 @@ namespace StockWave.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var userId = GetUserId();
-            var user = await _db.Users
-                .Where(u => u.Id == userId)
+            var users = await _db.Users
+                .OrderByDescending(u => u.CreatedAt)
                 .Select(u => new {
                     u.Id, u.FullName, u.Username,
                     u.Email, u.Status,
                     u.CreatedAt, u.LastLogin
                 })
-                .FirstOrDefaultAsync();
+                .ToListAsync();
 
-            if (user == null) return NotFound(new { message = "User not found." });
-            return Ok(new[] { user });
+            return Ok(users);
         }
 
         // PUT /api/users/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
         {
-            var userId = GetUserId();
-            if (id != userId) return Forbid();
             var user = await _db.Users.FindAsync(id);
             if (user == null) return NotFound(new { message = "User not found." });
 
@@ -54,20 +50,12 @@ namespace StockWave.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var userId = GetUserId();
-            if (id != userId) return Forbid();
             var user = await _db.Users.FindAsync(id);
             if (user == null) return NotFound(new { message = "User not found." });
 
             _db.Users.Remove(user);
             await _db.SaveChangesAsync();
             return Ok(new { message = "User deleted." });
-        }
-
-        private int GetUserId()
-        {
-            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.Parse(id ?? "0");
         }
     }
 
