@@ -6,6 +6,7 @@ const SpeechRecognition =
 
 export function useVoice({ onCommand, enabled = true }) {
   const recogRef = useRef(null);
+  const finalizedRef = useRef(false);
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const supported = !!SpeechRecognition;
@@ -14,12 +15,20 @@ export function useVoice({ onCommand, enabled = true }) {
     const cmd = text.toLowerCase().trim();
     console.log("Final transcript:", cmd);
 
-    if (cmd.includes("dashboard"))         onCommand("navigate", "dashboard");
+    if (cmd.includes("export"))            onCommand("export_report");
+    else if (cmd.includes("dashboard"))    onCommand("navigate", "dashboard");
     else if (cmd.includes("inventory"))    onCommand("navigate", "inventory");
     else if (cmd.includes("report"))       onCommand("navigate", "reports");
     else if (cmd.includes("user"))         onCommand("navigate", "users");
     else if (cmd.includes("setting"))      onCommand("navigate", "settings");
-    else if (cmd.includes("add product") || cmd.includes("new product"))
+    else if (
+      (cmd.includes("add") && cmd.includes("product")) ||
+      cmd.includes("add products") ||
+      cmd.includes("add item") ||
+      cmd.includes("new product") ||
+      cmd.includes("new item") ||
+      cmd.includes("create product")
+    )
                                            onCommand("add_product");
     else if (cmd.includes("logout") || cmd.includes("log out") || cmd.includes("sign out"))
                                            onCommand("logout");
@@ -27,6 +36,8 @@ export function useVoice({ onCommand, enabled = true }) {
 
   const startListening = useCallback(() => {
     if (!supported) return;
+
+    finalizedRef.current = false;
 
     const recog = new SpeechRecognition();
     recog.lang = "en-US";
@@ -36,10 +47,15 @@ export function useVoice({ onCommand, enabled = true }) {
     recog.onstart = () => setListening(true);
 
     recog.onresult = (e) => {
+      const hasFinal = Array.from(e.results).some(r => r.isFinal);
       const current = Array.from(e.results)
         .map(r => r[0].transcript)
         .join(" ");
       setTranscript(current);
+      if (hasFinal && !finalizedRef.current) {
+        finalizedRef.current = true;
+        recog.stop();
+      }
     };
 
     // onend fires ONCE with the full final phrase — no premature resets
@@ -64,6 +80,13 @@ export function useVoice({ onCommand, enabled = true }) {
   const stopListening = useCallback(() => {
     recogRef.current?.stop();
   }, []);
+
+  useEffect(() => {
+    if (!enabled) {
+      recogRef.current?.stop();
+      finalizedRef.current = false;
+    }
+  }, [enabled]);
 
   // cleanup on unmount
   useEffect(() => {

@@ -8,6 +8,8 @@ const GESTURE_LABELS = {
   point_up:  { emoji: "☝️", label: "Point Up",   action: "→ Reports"   },
   thumbs_up: { emoji: "👍", label: "Thumbs Up",  action: "→ Users"     },
   fist:      { emoji: "✊", label: "Fist",        action: "→ Settings"  },
+  voice_start: { emoji: "🗣️", label: "3 Fingers", action: "→ Voice On" },
+  stop_camera: { emoji: "🤙", label: "Pinky Up", action: "→ Stop Camera" },
 };
 
 export default function GestureControl({ onGesture }) {
@@ -17,6 +19,9 @@ export default function GestureControl({ onGesture }) {
   const handleGesture = useCallback((gesture) => {
     setLastGesture(gesture);
     onGesture(gesture);
+    if (gesture === "stop_camera") {
+      setActive(false);
+    }
     setTimeout(() => setLastGesture(null), 1500);
   }, [onGesture]);
 

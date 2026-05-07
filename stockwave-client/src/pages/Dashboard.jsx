@@ -54,6 +54,9 @@ const pageTitles = {
 export default function Dashboard({ onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activePage, setActivePage] = useState("dashboard");
+  const [openAddSignal, setOpenAddSignal] = useState(0);
+  const [voiceStartSignal, setVoiceStartSignal] = useState(0);
+  const [exportSignal, setExportSignal] = useState(0);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const avatarLetter = user.fullName?.[0]?.toUpperCase() || "A";
   const profilePhotoUrl = user.profilePhotoUrl || "";
@@ -71,7 +74,14 @@ export default function Dashboard({ onLogout }) {
   const handleVoiceCommand = (command, value) => {
     if (command === "navigate") setActivePage(value);
     if (command === "logout") onLogout();
-    if (command === "add_product") setActivePage("inventory");
+    if (command === "export_report") {
+      setActivePage("reports");
+      setExportSignal((v) => v + 1);
+    }
+    if (command === "add_product") {
+      setActivePage("inventory");
+      setOpenAddSignal((v) => v + 1);
+    }
   };
 
   const handleGestureCommand = (gesture) => {
@@ -82,14 +92,18 @@ export default function Dashboard({ onLogout }) {
       thumbs_up: "users",
       fist: "settings",
     };
+    if (gesture === "voice_start") {
+      setVoiceStartSignal((v) => v + 1);
+      return;
+    }
     const page = gestureMap[gesture];
     if (page) setActivePage(page);
   };
 
 
   const renderPage = () => {
-    if (activePage === "inventory") return <Inventory />;
-    if (activePage === "reports") return <Reports />;
+    if (activePage === "inventory") return <Inventory openAddSignal={openAddSignal} />;
+    if (activePage === "reports") return <Reports exportSignal={exportSignal} />;
     if (activePage === "users") return <Users />;
     if (activePage === "settings") return <Settings />;
     return <DashboardHome />;
@@ -163,7 +177,7 @@ export default function Dashboard({ onLogout }) {
             <p className="page-sub">{sub}</p>
           </div>
           <div className="header-right">
-            <VoiceControl onCommand={handleVoiceCommand} />
+            <VoiceControl onCommand={handleVoiceCommand} startSignal={voiceStartSignal} />
             <GestureControl onGesture={handleGestureCommand} />
             <button className="notif-btn">
               <Notifications />

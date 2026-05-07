@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./Inventory.css";
 import { getProducts, createProduct, updateProduct, deleteProduct } from "../api/stockwaveApi";
+import { useActionGuard } from "../hooks/useActionGuard";
 
 const categories = ["All", "Electronics", "Furniture", "Office Supplies"];
 const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
@@ -13,7 +14,7 @@ function StatusBadge({ status }) {
 }
 
 // ── Modal ──────────────────────────────────────────
-function ProductModal({ mode, product, onClose, onSave }) {
+function ProductModal({ mode, product, onClose, onSave, saving }) {
   const [form, setForm] = useState(product || emptyForm);
   const [error, setError] = useState("");
 
@@ -29,6 +30,7 @@ function ProductModal({ mode, product, onClose, onSave }) {
   };
 
   const handleSubmit = () => {
+    if (saving) return;
     if (!form.name || !form.stock || !form.price || !form.unit) {
       setError("Please fill in all fields."); return;
     }
@@ -86,9 +88,9 @@ function ProductModal({ mode, product, onClose, onSave }) {
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="btn-save" onClick={handleSubmit}>
-            {mode === "add" ? "Add Product" : "Save Changes"}
+          <button className="btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn-save" onClick={handleSubmit} disabled={saving}>
+            {saving ? "Saving..." : (mode === "add" ? "Add Product" : "Save Changes")}
           </button>
         </div>
       </div>
@@ -97,7 +99,7 @@ function ProductModal({ mode, product, onClose, onSave }) {
 }
 
 // ── Delete Confirm ─────────────────────────────────
-function DeleteModal({ product, onClose, onConfirm }) {
+function DeleteModal({ product, onClose, onConfirm, deleting }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card small" onClick={e => e.stopPropagation()}>
@@ -113,8 +115,10 @@ function DeleteModal({ product, onClose, onConfirm }) {
           </p>
         </div>
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="btn-delete" onClick={onConfirm}>Delete</button>
+          <button className="btn-cancel" onClick={onClose} disabled={deleting}>Cancel</button>
+          <button className="btn-delete" onClick={onConfirm} disabled={deleting}>
+            {deleting ? "Deleting..." : "Delete"}
+          </button>
         </div>
       </div>
     </div>
@@ -122,11 +126,12 @@ function DeleteModal({ product, onClose, onConfirm }) {
 }
 
 // ── Add Stock ─────────────────────────────────────
-function AddStockModal({ product, onClose, onSave }) {
+function AddStockModal({ product, onClose, onSave, saving }) {
   const [qty, setQty] = useState(1);
   const [error, setError] = useState("");
 
   const handleSubmit = () => {
+    if (saving) return;
     const amount = parseInt(qty, 10);
     if (isNaN(amount) || amount <= 0) {
       setError("Enter a valid quantity.");
@@ -170,8 +175,10 @@ function AddStockModal({ product, onClose, onSave }) {
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="btn-save" onClick={handleSubmit}>Add Stock</button>
+          <button className="btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn-save" onClick={handleSubmit} disabled={saving}>
+            {saving ? "Saving..." : "Add Stock"}
+          </button>
         </div>
       </div>
     </div>
@@ -179,7 +186,7 @@ function AddStockModal({ product, onClose, onSave }) {
 }
 
 // ── Main Component ─────────────────────────────────
-export default function Inventory() {
+export default function Inventory({ openAddSignal = 0 }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState("");
@@ -192,8 +199,21 @@ export default function Inventory() {
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
   const PER_PAGE = 8;
+  const { run, isRunning } = useActionGuard(500);
+  const saving = isRunning("add") || isRunning("edit");
+  const deleting = isRunning("delete");
+  const addingStock = isRunning("add-stock");
+  const bulkDeleting = isRunning("bulk-delete");
+  const lastOpenSignalRef = useRef(0);
 
   useEffect(() => { fetchProducts(); }, []);
+
+  useEffect(() => {
+    if (openAddSignal > lastOpenSignalRef.current) {
+      lastOpenSignalRef.current = openAddSignal;
+      setModal({ type: "add" });
+    }
+  }, [openAddSignal]);
 
   const fetchProducts = async () => {
     try {
@@ -237,54 +257,64 @@ export default function Inventory() {
   );
 
   const handleAdd = async (data) => {
-    try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      await createProduct({ ...data, performedBy: user.username || "Admin" });
-      await fetchProducts();
-      setModal(null);
-    } catch { alert("Failed to add product."); }
+    await run("add", async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        await createProduct({ ...data, performedBy: user.username || "Admin" });
+        await fetchProducts();
+        setModal(null);
+      } catch { alert("Failed to add product."); }
+    });
   };
 
   const handleEdit = async (data) => {
-    try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      await updateProduct(modal.product.id, { ...data, performedBy: user.username || "Admin" });
-      await fetchProducts();
-      setModal(null);
-    } catch { alert("Failed to update product."); }
+    await run("edit", async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        await updateProduct(modal.product.id, { ...data, performedBy: user.username || "Admin" });
+        await fetchProducts();
+        setModal(null);
+      } catch { alert("Failed to update product."); }
+    });
   };
 
   const handleDelete = async () => {
-    try {
-      await deleteProduct(modal.product.id);
-      await fetchProducts();
-      setModal(null);
-    } catch { alert("Failed to delete product."); }
+    await run("delete", async () => {
+      try {
+        await deleteProduct(modal.product.id);
+        await fetchProducts();
+        setModal(null);
+      } catch { alert("Failed to delete product."); }
+    });
   };
 
   const handleAddStock = async (qty) => {
-    try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const product = modal.product;
-      await updateProduct(product.id, {
-        name: product.name,
-        category: product.category,
-        stock: product.stock + qty,
-        price: product.price,
-        unit: product.unit,
-        performedBy: user.username || "Admin",
-      });
-      await fetchProducts();
-      setModal(null);
-    } catch { alert("Failed to add stock."); }
+    await run("add-stock", async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        const product = modal.product;
+        await updateProduct(product.id, {
+          name: product.name,
+          category: product.category,
+          stock: product.stock + qty,
+          price: product.price,
+          unit: product.unit,
+          performedBy: user.username || "Admin",
+        });
+        await fetchProducts();
+        setModal(null);
+      } catch { alert("Failed to add stock."); }
+    });
   };
 
   const handleBulkDelete = async () => {
-    try {
-      await Promise.all(selected.map(id => deleteProduct(id)));
-      await fetchProducts();
-      setSelected([]);
-    } catch { alert("Failed to delete some products."); }
+    await run("bulk-delete", async () => {
+      try {
+        await Promise.all(selected.map(id => deleteProduct(id)));
+        await fetchProducts();
+        setSelected([]);
+      } catch { alert("Failed to delete some products."); }
+    });
   };
 
   const toggleSelect = (id) => {
@@ -369,7 +399,7 @@ export default function Inventory() {
               </select>
             </div>
             {selected.length > 0 && (
-              <button className="btn-bulk-delete" onClick={handleBulkDelete}>
+              <button className="btn-bulk-delete" onClick={handleBulkDelete} disabled={bulkDeleting}>
                 🗑 Delete {selected.length} selected
               </button>
             )}
@@ -491,16 +521,16 @@ export default function Inventory() {
       )}
 
       {modal?.type === "add" && (
-        <ProductModal mode="add" onClose={() => setModal(null)} onSave={handleAdd} />
+        <ProductModal mode="add" onClose={() => setModal(null)} onSave={handleAdd} saving={saving} />
       )}
       {modal?.type === "edit" && (
-        <ProductModal mode="edit" product={modal.product} onClose={() => setModal(null)} onSave={handleEdit} />
+        <ProductModal mode="edit" product={modal.product} onClose={() => setModal(null)} onSave={handleEdit} saving={saving} />
       )}
       {modal?.type === "delete" && (
-        <DeleteModal product={modal.product} onClose={() => setModal(null)} onConfirm={handleDelete} />
+        <DeleteModal product={modal.product} onClose={() => setModal(null)} onConfirm={handleDelete} deleting={deleting} />
       )}
       {modal?.type === "add-stock" && (
-        <AddStockModal product={modal.product} onClose={() => setModal(null)} onSave={handleAddStock} />
+        <AddStockModal product={modal.product} onClose={() => setModal(null)} onSave={handleAddStock} saving={addingStock} />
       )}
     </div>
   );

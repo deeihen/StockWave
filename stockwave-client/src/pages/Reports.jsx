@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { exportReportsPDF, generateRestockOrder } from "../api/pdfUtils";
 import "./Reports.css";
+import { useActionGuard } from "../hooks/useActionGuard";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -43,8 +44,11 @@ const PieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
   );
 };
 
-export default function Reports() {
+export default function Reports({ exportSignal = 0 }) {
   const [activeTab, setActiveTab] = useState("overview");
+  const { run, isRunning } = useActionGuard(500);
+  const lastExportRef = useRef(0);
+  const pendingExportRef = useRef(false);
 
   // Real data state
   const [summary, setSummary] = useState(null);
@@ -98,6 +102,28 @@ export default function Reports() {
       : 0
   }));
 
+  useEffect(() => {
+    if (exportSignal > lastExportRef.current) {
+      lastExportRef.current = exportSignal;
+      if (loading) {
+        pendingExportRef.current = true;
+      } else {
+        run("export-pdf", async () =>
+          exportReportsPDF(summary, categoryData, stockMovement, topProducts)
+        );
+      }
+    }
+  }, [exportSignal, loading, run, summary, categoryData, stockMovement, topProducts]);
+
+  useEffect(() => {
+    if (!loading && pendingExportRef.current) {
+      pendingExportRef.current = false;
+      run("export-pdf", async () =>
+        exportReportsPDF(summary, categoryData, stockMovement, topProducts)
+      );
+    }
+  }, [loading, run, summary, categoryData, stockMovement, topProducts]);
+
   if (loading) {
     return (
       <div style={{ textAlign: "center", padding: 64, color: "#9ca3af", fontSize: 14 }}>
@@ -118,13 +144,16 @@ export default function Reports() {
           <button
             className="btn-export"
             onClick={() =>
-              exportReportsPDF(
-                summary,
-                categoryData,
-                stockMovement,
-                topProducts,
+              run("export-pdf", async () =>
+                exportReportsPDF(
+                  summary,
+                  categoryData,
+                  stockMovement,
+                  topProducts,
+                )
               )
             }
+            disabled={isRunning("export-pdf")}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
               <path
@@ -638,7 +667,8 @@ export default function Reports() {
             )}
             <button
               className="restock-all-btn"
-              onClick={() => generateRestockOrder(lowStockItems)}
+              onClick={() => run("restock", async () => generateRestockOrder(lowStockItems))}
+              disabled={isRunning("restock")}
             >
               📦 Generate Restock Order
             </button>

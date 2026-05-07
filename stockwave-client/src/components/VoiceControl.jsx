@@ -1,14 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useVoice } from "../hooks/useVoice";
 import "./VoiceControl.css";
 
-export default function VoiceControl({ onCommand }) {
+export default function VoiceControl({ onCommand, startSignal = 0 }) {
   const [active, setActive] = useState(false);
 
   const { listening, transcript, startListening, stopListening, supported } =
     useVoice({ onCommand, enabled: active });
 
   if (!supported) return null;
+
+  useEffect(() => {
+    if (startSignal > 0 && !listening) {
+      startListening();
+      setActive(true);
+    }
+  }, [startSignal, listening, startListening]);
+
+  useEffect(() => {
+    if (active && !listening) {
+      setActive(false);
+    }
+  }, [active, listening]);
 
   const toggle = () => {
     if (listening) {

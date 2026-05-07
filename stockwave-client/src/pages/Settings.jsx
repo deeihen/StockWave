@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./Settings.css";
 import { changeMyPassword, updateSecuritySettings, clearActivityLogs, resetSystem, updateUser } from "../api/stockwaveApi";
+import { useActionGuard } from "../hooks/useActionGuard";
 
 const tabs = [
   { id: "profile", label: "Profile", icon: "👤" },
@@ -52,6 +53,7 @@ function FieldRow({ label, sub, children }) {
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const [saved, setSaved] = useState(false);
+  const { run, isRunning } = useActionGuard(500);
 
   // Profile state
   const [profile, setProfile] = useState(() => {
@@ -68,28 +70,30 @@ export default function Settings() {
   });
 
   const handleSaveProfile = async () => {
-    try {
-      await updateUser(profile.id, {
-        fullName: profile.name,
-        username: profile.username,
-        email: profile.email,
-        phoneNumber: profile.phone,
-        bio: profile.bio
-      });
+    await run("save-profile", async () => {
+      try {
+        await updateUser(profile.id, {
+          fullName: profile.name,
+          username: profile.username,
+          email: profile.email,
+          phoneNumber: profile.phone,
+          bio: profile.bio
+        });
 
-      // Update localStorage
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      user.fullName = profile.name;
-      user.username = profile.username;
-      user.email = profile.email;
-      user.phoneNumber = profile.phone;
-      user.bio = profile.bio;
-      localStorage.setItem("user", JSON.stringify(user));
+        // Update localStorage
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        user.fullName = profile.name;
+        user.username = profile.username;
+        user.email = profile.email;
+        user.phoneNumber = profile.phone;
+        user.bio = profile.bio;
+        localStorage.setItem("user", JSON.stringify(user));
 
-      showSaved();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to update profile.");
-    }
+        showSaved();
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to update profile.");
+      }
+    });
   };
 
   const [system, setSystem] = useState({
@@ -146,64 +150,68 @@ export default function Settings() {
       setPassError("New passwords do not match."); return;
     }
 
-    try {
-      await changeMyPassword({
-        currentPassword: passwords.current,
-        newPassword: passwords.newPass,
-      });
-      setPassSuccess(true);
-      setPasswords({ current: "", newPass: "", confirm: "" });
-    } catch (err) {
-      const status = err.response?.status;
-      const serverMessage = err.response?.data?.message;
-      if (serverMessage) {
-        setPassError(serverMessage);
-        return;
+    await run("change-password", async () => {
+      try {
+        await changeMyPassword({
+          currentPassword: passwords.current,
+          newPassword: passwords.newPass,
+        });
+        setPassSuccess(true);
+        setPasswords({ current: "", newPass: "", confirm: "" });
+      } catch (err) {
+        const status = err.response?.status;
+        const serverMessage = err.response?.data?.message;
+        if (serverMessage) {
+          setPassError(serverMessage);
+          return;
+        }
+        if (status) {
+          setPassError(`Failed to update password. (HTTP ${status})`);
+          return;
+        }
+        setPassError("Failed to update password.");
       }
-      if (status) {
-        setPassError(`Failed to update password. (HTTP ${status})`);
-        return;
-      }
-      setPassError("Failed to update password.");
-    }
+    });
   };
 
 
 
   const handleSecurityUpdate = async () => {
-    setSecurityLoading(true);
-    setSecurityMessage("");
+    await run("save-security", async () => {
+      setSecurityLoading(true);
+      setSecurityMessage("");
 
-    try {
-      await updateSecuritySettings({
-        enableTwoFactor: security.twoFactor,
-        loginAlertsEnabled: security.loginAlerts,
-        sessionTimeoutMinutes: parseInt(security.sessionTimeout) || 30,
-      });
+      try {
+        await updateSecuritySettings({
+          enableTwoFactor: security.twoFactor,
+          loginAlertsEnabled: security.loginAlerts,
+          sessionTimeoutMinutes: parseInt(security.sessionTimeout) || 30,
+        });
 
-      // Update localStorage user data
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      user.twoFactorEnabled = security.twoFactor;
-      user.loginAlertsEnabled = security.loginAlerts;
-      user.sessionTimeoutMinutes = parseInt(security.sessionTimeout) || 30;
-      localStorage.setItem("user", JSON.stringify(user));
+        // Update localStorage user data
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        user.twoFactorEnabled = security.twoFactor;
+        user.loginAlertsEnabled = security.loginAlerts;
+        user.sessionTimeoutMinutes = parseInt(security.sessionTimeout) || 30;
+        localStorage.setItem("user", JSON.stringify(user));
 
-      setSecurityMessage("Security settings updated successfully!");
-      
-      // Apply session timeout immediately
-      const timeoutMinutes = parseInt(security.sessionTimeout) || 30;
-      if (timeoutMinutes > 0) {
-        // Set up session timeout warning
-        setTimeout(() => {
-          alert("Your session will expire in 5 minutes due to inactivity.");
-        }, (timeoutMinutes - 5) * 60 * 1000);
+        setSecurityMessage("Security settings updated successfully!");
+        
+        // Apply session timeout immediately
+        const timeoutMinutes = parseInt(security.sessionTimeout) || 30;
+        if (timeoutMinutes > 0) {
+          // Set up session timeout warning
+          setTimeout(() => {
+            alert("Your session will expire in 5 minutes due to inactivity.");
+          }, (timeoutMinutes - 5) * 60 * 1000);
+        }
+
+      } catch (err) {
+        setSecurityMessage(err.response?.data?.message || "Failed to update security settings.");
+      } finally {
+        setSecurityLoading(false);
       }
-
-    } catch (err) {
-      setSecurityMessage(err.response?.data?.message || "Failed to update security settings.");
-    } finally {
-      setSecurityLoading(false);
-    }
+    });
   };
 
   const handleClearLogs = async () => {
@@ -211,12 +219,14 @@ export default function Settings() {
       return;
     }
 
-    try {
-      await clearActivityLogs();
-      alert("Activity logs cleared successfully!");
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to clear activity logs.");
-    }
+    await run("clear-logs", async () => {
+      try {
+        await clearActivityLogs();
+        alert("Activity logs cleared successfully!");
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to clear activity logs.");
+      }
+    });
   };
 
   const handleResetSystem = async () => {
@@ -224,15 +234,17 @@ export default function Settings() {
       return;
     }
 
-    try {
-      await resetSystem();
-      alert("System reset to defaults successfully!");
-      
-      // Reload the page to refresh settings
-      window.location.reload();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to reset system.");
-    }
+    await run("reset-system", async () => {
+      try {
+        await resetSystem();
+        alert("System reset to defaults successfully!");
+        
+        // Reload the page to refresh settings
+        window.location.reload();
+      } catch (err) {
+        alert(err.response?.data?.message || "Failed to reset system.");
+      }
+    });
   };
 
   return (
@@ -312,7 +324,9 @@ export default function Settings() {
                 </div>
               </Section>
               <div className="section-actions">
-                <button className="btn-save" onClick={handleSaveProfile}>Save Profile</button>
+                <button className="btn-save" onClick={handleSaveProfile} disabled={isRunning("save-profile")}>
+                  {isRunning("save-profile") ? "Saving..." : "Save Profile"}
+                </button>
               </div>
             </div>
           )}
@@ -372,7 +386,13 @@ export default function Settings() {
                 </div>
               </Section>
               <div className="section-actions">
-                <button className="btn-save" onClick={showSaved}>Save System Settings</button>
+                <button
+                  className="btn-save"
+                  onClick={() => run("save-system", async () => showSaved())}
+                  disabled={isRunning("save-system")}
+                >
+                  {isRunning("save-system") ? "Saving..." : "Save System Settings"}
+                </button>
               </div>
             </div>
           )}
@@ -410,7 +430,13 @@ export default function Settings() {
                 </FieldRow>
               </Section>
               <div className="section-actions">
-                <button className="btn-save" onClick={showSaved}>Save Preferences</button>
+                <button
+                  className="btn-save"
+                  onClick={() => run("save-notif", async () => showSaved())}
+                  disabled={isRunning("save-notif")}
+                >
+                  {isRunning("save-notif") ? "Saving..." : "Save Preferences"}
+                </button>
               </div>
             </div>
           )}
@@ -441,8 +467,13 @@ export default function Settings() {
                       onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} />
                   </div>
                 </div>
-                <button className="btn-save" style={{ marginTop: 4 }} onClick={handlePasswordChange}>
-                  Update Password
+                <button
+                  className="btn-save"
+                  style={{ marginTop: 4 }}
+                  onClick={handlePasswordChange}
+                  disabled={isRunning("change-password")}
+                >
+                  {isRunning("change-password") ? "Saving..." : "Update Password"}
                 </button>
               </Section>
 
@@ -474,7 +505,7 @@ export default function Settings() {
                   <button 
                     className="btn-save" 
                     onClick={handleSecurityUpdate}
-                    disabled={securityLoading}
+                    disabled={securityLoading || isRunning("save-security")}
                   >
                     {securityLoading ? 'Saving...' : 'Save Security Settings'}
                   </button>
@@ -490,14 +521,18 @@ export default function Settings() {
                       <p className="danger-item-title">Clear All Activity Logs</p>
                       <p className="danger-item-sub">Permanently delete all system activity records</p>
                     </div>
-                    <button className="btn-danger" onClick={handleClearLogs}>Clear Logs</button>
+                    <button className="btn-danger" onClick={handleClearLogs} disabled={isRunning("clear-logs")}>
+                      {isRunning("clear-logs") ? "Clearing..." : "Clear Logs"}
+                    </button>
                   </div>
                   <div className="danger-item">
                     <div>
                       <p className="danger-item-title">Reset System to Default</p>
                       <p className="danger-item-sub">Resets all settings — does not delete products or users</p>
                     </div>
-                    <button className="btn-danger" onClick={handleResetSystem}>Reset</button>
+                    <button className="btn-danger" onClick={handleResetSystem} disabled={isRunning("reset-system")}>
+                      {isRunning("reset-system") ? "Resetting..." : "Reset"}
+                    </button>
                   </div>
                 </div>
               </div>

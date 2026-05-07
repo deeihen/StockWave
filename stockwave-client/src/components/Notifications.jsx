@@ -7,12 +7,14 @@ import {
   clearAllNotifications 
 } from "../api/stockwaveApi";
 import "./Notifications.css";
+import { useActionGuard } from "../hooks/useActionGuard";
 
 export default function Notifications() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef(null);
+  const { run, isRunning } = useActionGuard(500);
 
   useEffect(() => {
     loadNotifications();
@@ -46,40 +48,48 @@ export default function Notifications() {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const markAllRead = async () => {
-    try {
-      await markAllNotificationsAsRead();
-      await loadNotifications();
-    } catch (err) {
-      console.error("Failed to mark all as read:", err);
-    }
+    await run("mark-all-read", async () => {
+      try {
+        await markAllNotificationsAsRead();
+        await loadNotifications();
+      } catch (err) {
+        console.error("Failed to mark all as read:", err);
+      }
+    });
   };
 
   const markRead = async (id) => {
-    try {
-      await markNotificationAsRead(id);
-      await loadNotifications();
-    } catch (err) {
-      console.error("Failed to mark as read:", err);
-    }
+    await run(`mark-${id}`, async () => {
+      try {
+        await markNotificationAsRead(id);
+        await loadNotifications();
+      } catch (err) {
+        console.error("Failed to mark as read:", err);
+      }
+    });
   };
 
   const deleteNotif = async (id) => {
-    try {
-      await deleteNotification(id);
-      await loadNotifications();
-    } catch (err) {
-      console.error("Failed to delete notification:", err);
-    }
+    await run(`delete-${id}`, async () => {
+      try {
+        await deleteNotification(id);
+        await loadNotifications();
+      } catch (err) {
+        console.error("Failed to delete notification:", err);
+      }
+    });
   };
 
   const clearAll = async () => {
-    try {
-      await clearAllNotifications();
-      setNotifications([]);
-      setOpen(false);
-    } catch (err) {
-      console.error("Failed to clear all:", err);
-    }
+    await run("clear-all", async () => {
+      try {
+        await clearAllNotifications();
+        setNotifications([]);
+        setOpen(false);
+      } catch (err) {
+        console.error("Failed to clear all:", err);
+      }
+    });
   };
 
   return (
@@ -101,12 +111,12 @@ export default function Notifications() {
             <h3 className="notif-title">Notifications</h3>
             <div className="notif-actions">
               {unreadCount > 0 && (
-                <button className="notif-action-btn" onClick={markAllRead}>
+                <button className="notif-action-btn" onClick={markAllRead} disabled={isRunning("mark-all-read")}>
                   Mark all read
                 </button>
               )}
               {notifications.length > 0 && (
-                <button className="notif-action-btn red" onClick={clearAll}>
+                <button className="notif-action-btn red" onClick={clearAll} disabled={isRunning("clear-all")}>
                   Clear all
                 </button>
               )}
@@ -141,6 +151,7 @@ export default function Notifications() {
                     className="notif-delete-btn"
                     onClick={() => deleteNotif(n.id)}
                     title="Delete"
+                    disabled={isRunning(`delete-${n.id}`)}
                   >
                     ✕
                   </button>
