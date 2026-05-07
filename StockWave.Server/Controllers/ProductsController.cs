@@ -19,9 +19,7 @@ namespace StockWave.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var userId = GetUserId();
             var products = await _db.Products
-                .Where(p => p.UserId == userId)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
             return Ok(products);
@@ -31,9 +29,8 @@ namespace StockWave.Server.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var userId = GetUserId();
             var product = await _db.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return NotFound(new { message = "Product not found." });
             return Ok(product);
         }
@@ -77,9 +74,8 @@ namespace StockWave.Server.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] ProductDto dto)
         {
-            var userId = GetUserId();
             var product = await _db.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return NotFound(new { message = "Product not found." });
 
             var oldStock = product.Stock;
@@ -97,7 +93,7 @@ namespace StockWave.Server.Controllers
             {
                 _db.StockTransactions.Add(new StockTransaction
                 {
-                    UserId = userId,
+                    UserId = product.UserId,
                     ProductId = product.Id,
                     Action = diff > 0 ? "Added" : "Removed",
                     Quantity = Math.Abs(diff),
@@ -114,9 +110,8 @@ namespace StockWave.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var userId = GetUserId();
             var product = await _db.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
+                .FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return NotFound(new { message = "Product not found." });
 
             _db.Products.Remove(product);
@@ -132,6 +127,7 @@ namespace StockWave.Server.Controllers
             var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
             return int.Parse(id ?? "0");
         }
+
     }
 
     public record ProductDto(
