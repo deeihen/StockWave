@@ -51,6 +51,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
+app.UseStaticFiles(); // Enable static file serving
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -3334,6 +3334,7 @@
       "BCrypt.Net-Next >= 4.1.0",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 10.0.7",
       "Microsoft.AspNetCore.OpenApi >= 10.0.7",
+      "Microsoft.EntityFrameworkCore >= 10.0.7",
       "Microsoft.EntityFrameworkCore.Design >= 10.0.7",
       "Microsoft.EntityFrameworkCore.Sqlite >= 10.0.7",
       "Microsoft.EntityFrameworkCore.Tools >= 10.0.7",
@@ -3400,6 +3401,10 @@
             "version": "[10.0.7, )"
           },
           "Microsoft.AspNetCore.OpenApi": {
+            "target": "Package",
+            "version": "[10.0.7, )"
+          },
+          "Microsoft.EntityFrameworkCore": {
             "target": "Package",
             "version": "[10.0.7, )"
           },
