@@ -2,6 +2,7 @@
   position: relative;
 }
 
+/* ── Trigger button ── */
 .gesture-btn {
   display: flex;
   align-items: center;
@@ -20,59 +21,78 @@
 }
 .gesture-btn:hover { background: #f7f8fa; }
 .gesture-btn.active {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #1a6b3c;
+  border-color: #1a6b3c;
   color: white;
-  animation: pulse-blue 1.5s infinite;
+  animation: pulse-green 1.5s infinite;
 }
-@keyframes pulse-blue {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
-  50%       { box-shadow: 0 0 0 6px rgba(37,99,235,0); }
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(26,107,60,0.35); }
+  50%       { box-shadow: 0 0 0 6px rgba(26,107,60,0); }
 }
 
+/* ── Panel ── */
 .gesture-panel {
   position: absolute;
   top: 48px;
   right: 0;
+  width: 260px;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.12);
   z-index: 100;
   overflow: hidden;
-  display: flex;
-  gap: 0;
   animation: fadeUp 0.2s ease;
-  width: 420px;
+  display: flex;
+  flex-direction: column;
 }
-
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Webcam */
-.gesture-video-wrap {
+/* ── Camera frame — mirrors QR frame ── */
+.gesture-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
-  width: 240px;
-  height: 180px;
-  background: #111;
-  flex-shrink: 0;
+  overflow: hidden;
 }
+.gesture-frame.active { background: #111; }
+
 .gesture-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1); /* mirror */
   display: block;
+  /* no scaleX(-1) — matches QR scanner */
 }
 
+.gesture-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #9ca3af;
+  font-size: 13px;
+}
+.gesture-icon {
+  font-size: 32px;
+  opacity: 0.4;
+}
+
+/* ── Detected badge ── */
 .gesture-detected {
   position: absolute;
   bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.65);
   color: white;
   border-radius: 20px;
   padding: 4px 12px;
@@ -82,20 +102,62 @@
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  animation: fadeUp 0.15s ease;
 }
-.gesture-emoji { font-size: 18px; }
-.gesture-detected-label { font-size: 12px; }
 
-/* Guide */
+/* ── Error ── */
+.gesture-error {
+  margin: 10px 14px 0;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #c0392b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ── Actions — mirrors QR actions ── */
+.gesture-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 0;
+}
+.gesture-toggle-btn {
+  height: 36px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 8px;
+  background: #1a6b3c;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Figtree', sans-serif;
+  transition: background 0.2s;
+}
+.gesture-toggle-btn:hover { background: #155c33; }
+
+.gesture-status {
+  font-size: 12px;
+  color: #9ca3af;
+  animation: blink 1.2s infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Guide ── */
 .gesture-guide {
-  padding: 14px 16px;
-  flex: 1;
+  padding: 12px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 .gesture-guide-title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: #9ca3af;
   text-transform: uppercase;
@@ -107,18 +169,6 @@
   align-items: center;
   gap: 10px;
 }
-.gesture-guide-emoji { font-size: 20px; width: 28px; text-align: center; }
-.gesture-guide-name  { font-size: 13px; font-weight: 500; color: #111827; }
+.gesture-guide-emoji { font-size: 18px; width: 24px; text-align: center; }
+.gesture-guide-name  { font-size: 12px; font-weight: 500; color: #111827; }
 .gesture-guide-action { font-size: 11px; color: #9ca3af; }
-
-@media (max-width: 900px) {
-  .gesture-panel {
-    width: min(92vw, 420px);
-    flex-direction: column;
-  }
-  .gesture-video-wrap { width: 100%; height: 200px; }
-}
-@media (max-width: 600px) {
-  .gesture-btn { padding: 0 12px; width: 100%; justify-content: center; }
-  .gesture-guide { padding: 12px 14px; }
-}

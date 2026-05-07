@@ -1,4 +1,23 @@
-# Logs
+# --- .NET Build Artifacts (Fixes your Merge Conflict) ---
+[Bb]in/
+[Oo]bj/
+*.exe
+*.dll
+*.pdb
+*.apphost.exe
+# Specific to your project's server build artifacts
+StockWave.Server/bin/
+StockWave.Server/obj/
+
+# --- Dependencies & Build Outputs ---
+node_modules/
+dist/
+dist-ssr/
+build/
+.next/
+.cache/
+
+# --- Logs ---
 logs
 *.log
 npm-debug.log*
@@ -7,18 +26,29 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# --- Environment & Secrets ---
+.env
 *.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Sanity CMS often uses these
+.env.development
+.env.production
 
-# Editor directories and files
+# --- Editor / IDE ---
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
+.vs/
 *.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# --- OS / Misc ---
+.DS_Store
+Thumbs.db
+*.sw?
 *.ntvs*
 *.njsproj
-*.sln
-*.sw?
