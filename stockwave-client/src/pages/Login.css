@@ -193,6 +193,137 @@ body {
 /* Form */
 .login-form { display: flex; flex-direction: column; gap: 20px; }
 
+/* Tabs */
+.login-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.login-tab {
+  height: 38px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  font-family: 'Figtree', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mid);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.login-tab:hover {
+  background: var(--green-light);
+  border-color: #b6dfc8;
+  color: var(--green);
+}
+.login-tab.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+
+/* QR Login */
+.qr-login {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qr-head { display: flex; flex-direction: column; gap: 4px; }
+.qr-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.qr-sub {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.qr-frame {
+  border: 1.5px dashed var(--border);
+  border-radius: 14px;
+  background: #fafafa;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.qr-frame.active {
+  border-style: solid;
+  border-color: #b6dfc8;
+  background: #f2fbf6;
+}
+.qr-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.qr-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-light);
+  font-size: 12px;
+}
+.qr-icon {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+  color: var(--text-mid);
+  font-weight: 600;
+}
+
+.qr-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.qr-btn {
+  height: 38px;
+  padding: 0 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  font-family: 'Figtree', sans-serif;
+  font-size: 13px;
+  color: var(--text-mid);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.qr-btn:hover:not(:disabled) {
+  background: var(--green-light);
+  border-color: #b6dfc8;
+  color: var(--green);
+}
+.qr-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.qr-status {
+  font-size: 12px;
+  color: var(--green);
+}
+.qr-error {
+  background: var(--error-bg);
+  border: 1px solid #fecaca;
+  color: var(--error);
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.qr-hint {
+  font-size: 11px;
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 .field-label {
   font-size: 13px;
