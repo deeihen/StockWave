@@ -24,6 +24,20 @@ export const getUsers = () => api.get("/users");
 export const updateUser = (id, data) => api.put(`/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/users/${id}`);
 
+export const changeMyPassword = (data) => api.put("/users/me/password", data);
+// Security
+
+export const updateSecuritySettings = (data) => api.put("/users/me/security", data);
+export const clearActivityLogs = () => api.delete("/users/admin/activity-logs");
+export const resetSystem = () => api.post("/users/admin/reset-system");
+
+// ── Notifications ──────────────────────────────
+export const getNotifications = () => api.get("/notifications");
+export const markNotificationAsRead = (id) => api.put(`/notifications/${id}/read`);
+export const markAllNotificationsAsRead = () => api.put("/notifications/read-all");
+export const deleteNotification = (id) => api.delete(`/notifications/${id}`);
+export const clearAllNotifications = () => api.delete("/notifications/clear-all");
+
 // ── Reports ────────────────────────────────────────
 export const getReportSummary = () => api.get("/reports/summary");
 export const getLowStock = () => api.get("/reports/low-stock");

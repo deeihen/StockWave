@@ -1,15 +1,24 @@
 import { useState, useEffect, useRef } from "react";
-import { getLowStock, getRecentActivity } from "../api/stockwaveApi";
+import { 
+  getNotifications, 
+  markNotificationAsRead, 
+  markAllNotificationsAsRead,
+  deleteNotification,
+  clearAllNotifications 
+} from "../api/stockwaveApi";
 import "./Notifications.css";
 
 export default function Notifications() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [readIds, setReadIds] = useState([]);
+  const [loading, setLoading] = useState(false);
   const panelRef = useRef(null);
 
   useEffect(() => {
     loadNotifications();
+    // Refresh every 30 seconds
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -24,49 +33,53 @@ export default function Notifications() {
 
   const loadNotifications = async () => {
     try {
-      const [lowRes, actRes] = await Promise.all([
-        getLowStock(),
-        getRecentActivity(),
-      ]);
-
-      const lowStockNotifs = lowRes.data.map((item) => ({
-        id: `low-${item.id}`,
-        type: "warning",
-        icon: "⚠️",
-        title: "Low Stock Alert",
-        message: `${item.name} is running low — only ${item.stock} ${item.unit} left.`,
-        time: "Now",
-      }));
-
-      const activityNotifs = actRes.data.slice(0, 3).map((a) => ({
-        id: `act-${a.id}`,
-        type: a.action === "Added" ? "success" : "info",
-        icon: a.action === "Added" ? "📥" : "📤",
-        title: `${a.action}: ${a.item}`,
-        message: `${a.quantity} units by ${a.performedBy}`,
-        time: new Date(a.timestamp).toLocaleString("en-PH"),
-      }));
-
-      setNotifications([...lowStockNotifs, ...activityNotifs]);
-    } catch {
-      // silently fail
+      setLoading(true);
+      const res = await getNotifications();
+      setNotifications(res.data || []);
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const unreadCount = notifications.filter((n) => !readIds.includes(n.id)).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const markAllRead = () => {
-    setReadIds(notifications.map((n) => n.id));
+  const markAllRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      await loadNotifications();
+    } catch (err) {
+      console.error("Failed to mark all as read:", err);
+    }
   };
 
-  const markRead = (id) => {
-    setReadIds((prev) => [...new Set([...prev, id])]);
+  const markRead = async (id) => {
+    try {
+      await markNotificationAsRead(id);
+      await loadNotifications();
+    } catch (err) {
+      console.error("Failed to mark as read:", err);
+    }
   };
 
-  const clearAll = () => {
-    setNotifications([]);
-    setReadIds([]);
-    setOpen(false);
+  const deleteNotif = async (id) => {
+    try {
+      await deleteNotification(id);
+      await loadNotifications();
+    } catch (err) {
+      console.error("Failed to delete notification:", err);
+    }
+  };
+
+  const clearAll = async () => {
+    try {
+      await clearAllNotifications();
+      setNotifications([]);
+      setOpen(false);
+    } catch (err) {
+      console.error("Failed to clear all:", err);
+    }
   };
 
   return (
@@ -101,7 +114,11 @@ export default function Notifications() {
           </div>
 
           <div className="notif-list">
-            {notifications.length === 0 ? (
+            {loading ? (
+              <div className="notif-empty">
+                <p>Loading...</p>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="notif-empty">
                 <span className="notif-empty-icon">🎉</span>
                 <p>All caught up! No notifications.</p>
@@ -110,18 +127,24 @@ export default function Notifications() {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`notif-item ${readIds.includes(n.id) ? "read" : "unread"}`}
-                  onClick={() => markRead(n.id)}
+                  className={`notif-item ${n.isRead ? "read" : "unread"}`}
                 >
                   <div className={`notif-icon-wrap ${n.type}`}>
                     <span>{n.icon}</span>
                   </div>
-                  <div className="notif-content">
+                  <div className="notif-content" onClick={() => markRead(n.id)}>
                     <p className="notif-item-title">{n.title}</p>
                     <p className="notif-item-msg">{n.message}</p>
-                    <p className="notif-item-time">{n.time}</p>
+                    <p className="notif-item-time">{new Date(n.createdAt).toLocaleString("en-PH")}</p>
                   </div>
-                  {!readIds.includes(n.id) && <span className="notif-dot" />}
+                  <button
+                    className="notif-delete-btn"
+                    onClick={() => deleteNotif(n.id)}
+                    title="Delete"
+                  >
+                    ✕
+                  </button>
+                  {!n.isRead && <span className="notif-dot" />}
                 </div>
               ))
             )}

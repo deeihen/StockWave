@@ -241,6 +241,15 @@ body {
   color: var(--text-light);
 }
 
+.qr-preview {
+  font-size: 12px;
+  color: var(--green);
+  background: #ecf9f1;
+  border: 1px solid #cfead7;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
 .qr-frame {
   border: 1.5px dashed var(--border);
   border-radius: 14px;

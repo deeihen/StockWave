@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useGesture } from "../hooks/useGesture";
 import "./GestureControl.css";
 
@@ -14,11 +14,11 @@ export default function GestureControl({ onGesture }) {
   const [active, setActive]       = useState(false);
   const [lastGesture, setLastGesture] = useState(null);
 
-  const handleGesture = (gesture) => {
+  const handleGesture = useCallback((gesture) => {
     setLastGesture(gesture);
     onGesture(gesture);
     setTimeout(() => setLastGesture(null), 1500);
-  };
+  }, [onGesture]);
 
   const { videoRef, cameraError } = useGesture({
     onGesture: handleGesture,
@@ -50,25 +50,20 @@ export default function GestureControl({ onGesture }) {
       {/* ── Panel ── */}
       {(active || lastGesture) && (
         <div className="gesture-panel">
-
-          {/* Camera frame */}
-          <div className={`gesture-frame ${active ? "active" : ""}`}>
-            {active ? (
-              <video
-                ref={videoRef}
-                className="gesture-video"
-                autoPlay
-                playsInline
-                muted
-              />
-            ) : (
-              <div className="gesture-placeholder">
-                <div className="gesture-icon">✋</div>
-                <p>Camera is off</p>
-              </div>
-            )}
-
-            {/* Detected badge */}
+          {cameraError && (
+            <div className="gesture-error">
+              <p>{cameraError}</p>
+            </div>
+          )}
+          {/* Webcam preview */}
+          <div className="gesture-video-wrap">
+            <video
+              ref={videoRef}
+              className="gesture-video"
+              autoPlay
+              playsInline
+              muted
+            />
             {lastGesture && (
               <div className="gesture-detected">
                 <span>{GESTURE_LABELS[lastGesture]?.emoji}</span>

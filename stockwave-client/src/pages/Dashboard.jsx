@@ -56,6 +56,7 @@ export default function Dashboard({ onLogout }) {
   const [activePage, setActivePage] = useState("dashboard");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const avatarLetter = user.fullName?.[0]?.toUpperCase() || "A";
+  const profilePhotoUrl = user.profilePhotoUrl || "";
 
   const navItems = [
     { id: "dashboard", icon: "⊞", label: "Dashboard" },
@@ -131,7 +132,13 @@ export default function Dashboard({ onLogout }) {
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">{avatarLetter}</div>
+            <div className="user-avatar">
+              {profilePhotoUrl ? (
+                <img src={profilePhotoUrl} alt="Profile" className="user-avatar-img" />
+              ) : (
+                avatarLetter
+              )}
+            </div>
             {sidebarOpen && (
               <div className="user-details">
                 <p className="user-name">{user.fullName || "Admin"}</p>

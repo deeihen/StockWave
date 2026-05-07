@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./Settings.css";
+import { changeMyPassword, updateSecuritySettings, clearActivityLogs, resetSystem, updateUser } from "../api/stockwaveApi";
 
 const tabs = [
   { id: "profile", label: "Profile", icon: "👤" },
@@ -53,16 +54,44 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
 
   // Profile state
-  const [profile, setProfile] = useState({
-    name: "Admin User",
-    username: "admin",
-    email: "admin@stockwave.com",
-    phone: "+63 912 345 6789",
-    role: "Administrator",
-    bio: "System administrator for StockWave inventory management.",
+  const [profile, setProfile] = useState(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    return {
+      id: user.id,
+      name: user.fullName || "",
+      username: user.username || "",
+      email: user.email || "",
+      phone: user.phoneNumber || "",
+      role: user.role || "Staff",
+      bio: user.bio || "",
+    };
   });
 
-  // System state
+  const handleSaveProfile = async () => {
+    try {
+      await updateUser(profile.id, {
+        fullName: profile.name,
+        username: profile.username,
+        email: profile.email,
+        phoneNumber: profile.phone,
+        bio: profile.bio
+      });
+
+      // Update localStorage
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      user.fullName = profile.name;
+      user.username = profile.username;
+      user.email = profile.email;
+      user.phoneNumber = profile.phone;
+      user.bio = profile.bio;
+      localStorage.setItem("user", JSON.stringify(user));
+
+      showSaved();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update profile.");
+    }
+  };
+
   const [system, setSystem] = useState({
     companyName: "StockWave Corp",
     currency: "PHP",
@@ -83,21 +112,28 @@ export default function Settings() {
   });
 
   // Security state
-  const [security, setSecurity] = useState({
-    twoFactor: false,
-    sessionTimeout: "30",
-    loginAlerts: true,
+  const [security, setSecurity] = useState(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    return {
+      twoFactor: user.twoFactorEnabled || false,
+      sessionTimeout: user.sessionTimeoutMinutes?.toString() || "30",
+      loginAlerts: user.loginAlertsEnabled !== false, // default to true
+    };
   });
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState("");
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
   const [passError, setPassError] = useState("");
   const [passSuccess, setPassSuccess] = useState(false);
+
+
 
   const showSaved = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     setPassError("");
     setPassSuccess(false);
     if (!passwords.current || !passwords.newPass || !passwords.confirm) {
@@ -109,8 +145,94 @@ export default function Settings() {
     if (passwords.newPass !== passwords.confirm) {
       setPassError("New passwords do not match."); return;
     }
-    setPassSuccess(true);
-    setPasswords({ current: "", newPass: "", confirm: "" });
+
+    try {
+      await changeMyPassword({
+        currentPassword: passwords.current,
+        newPassword: passwords.newPass,
+      });
+      setPassSuccess(true);
+      setPasswords({ current: "", newPass: "", confirm: "" });
+    } catch (err) {
+      const status = err.response?.status;
+      const serverMessage = err.response?.data?.message;
+      if (serverMessage) {
+        setPassError(serverMessage);
+        return;
+      }
+      if (status) {
+        setPassError(`Failed to update password. (HTTP ${status})`);
+        return;
+      }
+      setPassError("Failed to update password.");
+    }
+  };
+
+
+
+  const handleSecurityUpdate = async () => {
+    setSecurityLoading(true);
+    setSecurityMessage("");
+
+    try {
+      await updateSecuritySettings({
+        enableTwoFactor: security.twoFactor,
+        loginAlertsEnabled: security.loginAlerts,
+        sessionTimeoutMinutes: parseInt(security.sessionTimeout) || 30,
+      });
+
+      // Update localStorage user data
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      user.twoFactorEnabled = security.twoFactor;
+      user.loginAlertsEnabled = security.loginAlerts;
+      user.sessionTimeoutMinutes = parseInt(security.sessionTimeout) || 30;
+      localStorage.setItem("user", JSON.stringify(user));
+
+      setSecurityMessage("Security settings updated successfully!");
+      
+      // Apply session timeout immediately
+      const timeoutMinutes = parseInt(security.sessionTimeout) || 30;
+      if (timeoutMinutes > 0) {
+        // Set up session timeout warning
+        setTimeout(() => {
+          alert("Your session will expire in 5 minutes due to inactivity.");
+        }, (timeoutMinutes - 5) * 60 * 1000);
+      }
+
+    } catch (err) {
+      setSecurityMessage(err.response?.data?.message || "Failed to update security settings.");
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const handleClearLogs = async () => {
+    if (!confirm("Are you sure you want to clear all activity logs? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await clearActivityLogs();
+      alert("Activity logs cleared successfully!");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to clear activity logs.");
+    }
+  };
+
+  const handleResetSystem = async () => {
+    if (!confirm("Are you sure you want to reset the system to defaults? This will reset all users' security settings and cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await resetSystem();
+      alert("System reset to defaults successfully!");
+      
+      // Reload the page to refresh settings
+      window.location.reload();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to reset system.");
+    }
   };
 
   return (
@@ -152,11 +274,12 @@ export default function Settings() {
               <Section title="Profile Information" sub="Update your personal details">
                 {/* Avatar */}
                 <div className="avatar-section">
-                  <div className="settings-avatar">A</div>
+                  <div className="settings-avatar">
+                    {profile.name.charAt(0).toUpperCase()}
+                  </div>
                   <div>
                     <p className="avatar-name">{profile.name}</p>
                     <p className="avatar-role">{profile.role}</p>
-                    <button className="btn-change-avatar">Change Photo</button>
                   </div>
                 </div>
 
@@ -189,7 +312,7 @@ export default function Settings() {
                 </div>
               </Section>
               <div className="section-actions">
-                <button className="btn-save" onClick={showSaved}>Save Profile</button>
+                <button className="btn-save" onClick={handleSaveProfile}>Save Profile</button>
               </div>
             </div>
           )}
@@ -324,6 +447,11 @@ export default function Settings() {
               </Section>
 
               <Section title="Security Options" sub="Extra protection for your account">
+                {securityMessage && (
+                  <div className={`security-message ${securityMessage.includes("success") ? "success" : "error"}`}>
+                    {securityMessage}
+                  </div>
+                )}
                 <FieldRow label="Two-Factor Authentication" sub="Require a code in addition to password">
                   <Toggle checked={security.twoFactor}
                     onChange={v => setSecurity(s => ({ ...s, twoFactor: v }))} />
@@ -342,6 +470,15 @@ export default function Settings() {
                     <option value="0">Never</option>
                   </select>
                 </FieldRow>
+                <div className="section-actions">
+                  <button 
+                    className="btn-save" 
+                    onClick={handleSecurityUpdate}
+                    disabled={securityLoading}
+                  >
+                    {securityLoading ? 'Saving...' : 'Save Security Settings'}
+                  </button>
+                </div>
               </Section>
 
               <div className="danger-zone">
@@ -353,14 +490,14 @@ export default function Settings() {
                       <p className="danger-item-title">Clear All Activity Logs</p>
                       <p className="danger-item-sub">Permanently delete all system activity records</p>
                     </div>
-                    <button className="btn-danger">Clear Logs</button>
+                    <button className="btn-danger" onClick={handleClearLogs}>Clear Logs</button>
                   </div>
                   <div className="danger-item">
                     <div>
                       <p className="danger-item-title">Reset System to Default</p>
                       <p className="danger-item-sub">Resets all settings — does not delete products or users</p>
                     </div>
-                    <button className="btn-danger">Reset</button>
+                    <button className="btn-danger" onClick={handleResetSystem}>Reset</button>
                   </div>
                 </div>
               </div>

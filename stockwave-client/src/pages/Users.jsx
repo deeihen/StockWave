@@ -107,6 +107,52 @@ function DeleteModal({ user, onClose, onConfirm }) {
   );
 }
 
+// ── View User Modal ────────────────────────────────
+function ViewUserModal({ user, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">User Profile</h3>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="profile-detail-header">
+            <div className="usr-avatar large" style={{ background: avatarColors[user.name.charCodeAt(0) % avatarColors.length] }}>
+              {user.avatar}
+            </div>
+            <div className="profile-detail-info">
+              <h2 className="profile-name">{user.name}</h2>
+              <p className="profile-username">@{user.username}</p>
+              <span className={`status-dot-badge ${user.status.toLowerCase()}`}>
+                <span className="sdot" />{user.status}
+              </span>
+            </div>
+          </div>
+
+          <div className="profile-detail-grid">
+            <div className="detail-item">
+              <label className="detail-label">Email Address</label>
+              <p className="detail-value">{user.email}</p>
+            </div>
+            <div className="detail-item">
+              <label className="detail-label">Phone Number</label>
+              <p className="detail-value">{user.phoneNumber || "Not provided"}</p>
+            </div>
+            <div className="detail-item full">
+              <label className="detail-label">Bio</label>
+              <p className="detail-value bio-text">{user.bio || "No bio available."}</p>
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-cancel" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -119,14 +165,14 @@ export default function Users() {
       const res = await getUsers();
       setUsers(res.data.map(u => ({
         ...u,
-        name: u.fullName,        // ← ADD THIS LINE
+        name: u.fullName,
         avatar: u.fullName?.[0]?.toUpperCase() || "?",
         lastLogin: u.lastLogin
           ? new Date(u.lastLogin).toLocaleString("en-PH", { timeZone: "Asia/Manila" })
           : "Never"
       })));
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
     } finally {
       setLoading(false);
     }
@@ -248,12 +294,12 @@ export default function Users() {
               <p>No users found</p>
             </div>
           ) : filtered.map((u, i) => (
-            <div key={u.id} className="usr-card" style={{ animationDelay: `${i * 40}ms` }}>
+            <div key={u.id} className="usr-card clickable" style={{ animationDelay: `${i * 40}ms` }} onClick={() => setModal({ type: "view", user: u })}>
               <div className="usr-card-top">
                 <div className="usr-avatar" style={{ background: avatarColors[u.name.charCodeAt(0) % avatarColors.length] }}>
                   {u.avatar}
                 </div>
-                <div className="usr-card-actions">
+                <div className="usr-card-actions" onClick={e => e.stopPropagation()}>
                   <button className="act-btn edit" onClick={() => setModal({ type: "edit", user: u })} title="Edit">✏️</button>
                   <button className="act-btn del" onClick={() => setModal({ type: "delete", user: u })} title="Remove">🗑️</button>
                 </div>
@@ -294,7 +340,7 @@ export default function Users() {
                   </td>
                 </tr>
               ) : filtered.map(u => (
-                <tr key={u.id}>
+                <tr key={u.id} className="clickable" onClick={() => setModal({ type: "view", user: u })}>
                   <td>
                     <div className="usr-table-name-cell">
                       <div className="usr-avatar small" style={{ background: avatarColors[u.name.charCodeAt(0) % avatarColors.length] }}>
@@ -311,7 +357,7 @@ export default function Users() {
                     </span>
                   </td>
                   <td className="td-light">{u.lastLogin}</td>
-                  <td>
+                  <td onClick={e => e.stopPropagation()}>
                     <div className="action-btns">
                       <button className="act-btn edit" onClick={() => setModal({ type: "edit", user: u })}>✏️</button>
                       <button className="act-btn del" onClick={() => setModal({ type: "delete", user: u })}>🗑️</button>
@@ -325,6 +371,9 @@ export default function Users() {
       )}
 
       {/* ── MODALS ── */}
+      {modal?.type === "view" && (
+        <ViewUserModal user={modal.user} onClose={() => setModal(null)} />
+      )}
       {modal?.type === "add" && (
         <UserModal mode="add" onClose={() => setModal(null)} onSave={handleAdd} />
       )}
