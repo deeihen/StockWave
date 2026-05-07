@@ -165,13 +165,6 @@ export default function Dashboard({ onLogout }) {
             <button className="notif-btn">
               <Notifications />
             </button>
-            <div className="search-wrap">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <circle cx="11" cy="11" r="8" stroke="#aaa" strokeWidth="1.5"/>
-                <path d="M21 21l-4.35-4.35" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <input className="search-input" placeholder="Search products..." />
-            </div>
           </div>
         </header>
 
