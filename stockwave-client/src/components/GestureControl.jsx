@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useGesture } from "../hooks/useGesture";
 import "./GestureControl.css";
 
@@ -14,13 +14,13 @@ export default function GestureControl({ onGesture }) {
   const [active, setActive] = useState(false);
   const [lastGesture, setLastGesture] = useState(null);
 
-  const handleGesture = (gesture) => {
+  const handleGesture = useCallback((gesture) => {
     setLastGesture(gesture);
     onGesture(gesture);
     setTimeout(() => setLastGesture(null), 1500);
-  };
+  }, [onGesture]);
 
-  const { videoRef } = useGesture({
+  const { videoRef, cameraError } = useGesture({
     onGesture: handleGesture,
     enabled: active,
   });
@@ -41,6 +41,11 @@ export default function GestureControl({ onGesture }) {
 
       {active && (
         <div className="gesture-panel">
+          {cameraError && (
+            <div className="gesture-error">
+              <p>{cameraError}</p>
+            </div>
+          )}
           {/* Webcam preview */}
           <div className="gesture-video-wrap">
             <video
