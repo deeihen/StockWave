@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
 import { loginUser } from "../api/stockwaveApi";
+import jsQR from "jsqr";  
 
 export default function Login({ onGoRegister, onLoginSuccess }) {
   const [form, setForm] = useState({ username: "", password: "", remember: false });
@@ -120,13 +121,6 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
       return;
     }
 
-    const BarcodeDetectorAPI = window.BarcodeDetector;
-    if (!BarcodeDetectorAPI) {
-      setQrError("QR scanning is not supported in this browser.");
-      setQrActive(false);
-      return;
-    }
-
     if (!navigator.mediaDevices?.getUserMedia) {
       setQrError("Camera access is not available on this device.");
       setQrActive(false);
@@ -134,6 +128,8 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
     }
 
     let cancelled = false;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
 
     const start = async () => {
       try {
@@ -142,35 +138,40 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
           video: { facingMode: "environment" },
         });
         if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((t) => t.stop());
           return;
         }
+
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
 
-        const detector = new BarcodeDetectorAPI({ formats: ["qr_code"] });
-
-        const scanFrame = async () => {
+        const scanFrame = () => {
           if (cancelled || !videoRef.current) return;
-          try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes.length > 0) {
-              const value = codes[0]?.rawValue || "";
+          const video = videoRef.current;
+
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height,
+            );
+            const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+            if (code?.data) {
               stopQrScan();
               setQrActive(false);
-              if (value) handleQrLogin(value);
-              else setQrError("QR code is empty.");
+              handleQrLogin(code.data);
               return;
             }
-          } catch {
-            stopQrScan();
-            setQrActive(false);
-            setQrError("Unable to read the QR code.");
-            return;
           }
+
           rafRef.current = requestAnimationFrame(scanFrame);
         };
 
@@ -183,7 +184,6 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
     };
 
     start();
-
     return () => {
       cancelled = true;
       stopQrScan();
