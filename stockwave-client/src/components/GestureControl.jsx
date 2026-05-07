@@ -3,11 +3,11 @@ import { useGesture } from "../hooks/useGesture";
 import "./GestureControl.css";
 
 const GESTURE_LABELS = {
-  open_palm: { emoji: "✋", label: "Open Palm", action: "Navigate" },
-  fist:      { emoji: "✊", label: "Fist",      action: "Cancel" },
-  point_up:  { emoji: "☝️", label: "Point Up",  action: "Previous" },
-  peace:     { emoji: "✌️", label: "Peace",     action: "Next Page" },
-  thumbs_up: { emoji: "👍", label: "Thumbs Up", action: "Confirm" },
+  open_palm: { emoji: "✋", label: "Open Palm",  action: "→ Dashboard" },
+  peace:     { emoji: "✌️", label: "Peace Sign", action: "→ Inventory" },
+  point_up:  { emoji: "☝️", label: "Point Up",   action: "→ Reports"   },
+  thumbs_up: { emoji: "👍", label: "Thumbs Up",  action: "→ Users"     },
+  fist:      { emoji: "✊", label: "Fist",        action: "→ Settings"  },
 };
 
 export default function GestureControl({ onGesture }) {
