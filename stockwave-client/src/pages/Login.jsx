@@ -120,13 +120,6 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
       return;
     }
 
-    const BarcodeDetectorAPI = window.BarcodeDetector;
-    if (!BarcodeDetectorAPI) {
-      setQrError("QR scanning is not supported in this browser.");
-      setQrActive(false);
-      return;
-    }
-
     if (!navigator.mediaDevices?.getUserMedia) {
       setQrError("Camera access is not available on this device.");
       setQrActive(false);
@@ -138,47 +131,77 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
     const start = async () => {
       try {
         setQrError("");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+        
+        // Load jsQR library from CDN if not already loaded
+        if (!window.jsQR) {
+          const script = document.createElement("script");
+          script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+          script.async = true;
+          script.onload = () => {
+            if (!cancelled) {
+              startCamera();
+            }
+          };
+          script.onerror = () => {
+            setQrError("Failed to load QR scanner library.");
+            setQrActive(false);
+          };
+          document.head.appendChild(script);
+        } else {
+          startCamera();
         }
 
-        const detector = new BarcodeDetectorAPI({ formats: ["qr_code"] });
-
-        const scanFrame = async () => {
-          if (cancelled || !videoRef.current) return;
+        const startCamera = async () => {
           try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes.length > 0) {
-              const value = codes[0]?.rawValue || "";
-              stopQrScan();
-              setQrActive(false);
-              if (value) handleQrLogin(value);
-              else setQrError("QR code is empty.");
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "environment" },
+            });
+            if (cancelled) {
+              stream.getTracks().forEach((track) => track.stop());
               return;
             }
-          } catch {
+            streamRef.current = stream;
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              await videoRef.current.play();
+            }
+
+            // Create canvas for QR detection
+            const canvas = document.createElement("canvas");
+            const canvasContext = canvas.getContext("2d");
+
+            const scanFrame = () => {
+              if (cancelled || !videoRef.current) return;
+              try {
+                canvas.width = videoRef.current.videoWidth;
+                canvas.height = videoRef.current.videoHeight;
+                canvasContext.drawImage(videoRef.current, 0, 0);
+                const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+                const code = window.jsQR(imageData.data, imageData.width, imageData.height);
+                if (code) {
+                  stopQrScan();
+                  setQrActive(false);
+                  if (code.data) handleQrLogin(code.data);
+                  else setQrError("QR code is empty.");
+                  return;
+                }
+              } catch (err) {
+                console.error("QR scan error:", err);
+              }
+              rafRef.current = requestAnimationFrame(scanFrame);
+            };
+
+            rafRef.current = requestAnimationFrame(scanFrame);
+          } catch (err) {
             stopQrScan();
             setQrActive(false);
-            setQrError("Unable to read the QR code.");
-            return;
+            setQrError("Camera access was blocked. Allow access and try again.");
           }
-          rafRef.current = requestAnimationFrame(scanFrame);
         };
-
-        rafRef.current = requestAnimationFrame(scanFrame);
-      } catch {
+      } catch (err) {
         stopQrScan();
         setQrActive(false);
-        setQrError("Camera access was blocked. Allow access and try again.");
+        setQrError("Failed to start camera.");
       }
     };
 
