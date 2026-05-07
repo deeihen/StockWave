@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Notifications from "../components/Notifications";
 import VoiceControl from "../components/VoiceControl";
 import GestureControl from "../components/GestureControl";
 import "./Dashboard.css";
@@ -162,7 +163,7 @@ export default function Dashboard({ onLogout }) {
             <GestureControl onGesture={handleGestureCommand} />
             <VoiceControl onCommand={handleVoiceCommand} />
             <button className="notif-btn">
-              🔔<span className="notif-badge">4</span>
+              <Notifications />
             </button>
             <div className="search-wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
