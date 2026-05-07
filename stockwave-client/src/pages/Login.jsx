@@ -1,12 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
 import { loginUser } from "../api/stockwaveApi";
+import jsQR from "jsqr";  
 
 export default function Login({ onGoRegister, onLoginSuccess }) {
   const [form, setForm] = useState({ username: "", password: "", remember: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState("credentials");
+  const [qrActive, setQrActive] = useState(false);
+  const [qrError, setQrError] = useState("");
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(0);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -14,26 +21,188 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
     if (error) setError("");
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!form.username || !form.password) {
-    setError("Please fill in all fields.");
-    return;
-  }
-  setLoading(true);
-  setError("");
+  const stopQrScan = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
 
-  try {
-    const res = await loginUser({ username: form.username, password: form.password });
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("user", JSON.stringify(res.data.user));
-    if (onLoginSuccess) onLoginSuccess();
-  } catch (err) {
-    setError(err.response?.data?.message || "Invalid username or password.");
-  } finally {
-    setLoading(false);
-  }
-};
+  const parseQrCredentials = (rawValue) => {
+    if (!rawValue) return null;
+    const trimmed = rawValue.trim();
+
+    try {
+      const obj = JSON.parse(trimmed);
+      const username = obj.username || obj.user || obj.u;
+      const password = obj.password || obj.pass || obj.p;
+      if (username && password) return { username, password };
+    } catch {
+      // Not JSON
+    }
+
+    const parseUrl = (value) => {
+      try {
+        const url = new URL(value);
+        const username = url.searchParams.get("u") || url.searchParams.get("username");
+        const password = url.searchParams.get("p") || url.searchParams.get("password");
+        if (username && password) return { username, password };
+      } catch {
+        return null;
+      }
+      return null;
+    };
+
+    const urlCreds = parseUrl(trimmed) || parseUrl(trimmed.replace(/^stockwave:\/\//, "http://"));
+    if (urlCreds) return urlCreds;
+
+    const separators = ["|", ":", ","];
+    for (const sep of separators) {
+      const idx = trimmed.indexOf(sep);
+      if (idx > 0) {
+        const username = trimmed.slice(0, idx).trim();
+        const password = trimmed.slice(idx + 1).trim();
+        if (username && password) return { username, password };
+      }
+    }
+
+    return null;
+  };
+
+  const loginWithCredentials = useCallback(async (username, password, errorTarget = "form") => {
+    setLoading(true);
+    setError("");
+    setQrError("");
+    setQrActive(false);
+    stopQrScan();
+
+    try {
+      const res = await loginUser({ username, password });
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      if (onLoginSuccess) onLoginSuccess();
+    } catch (err) {
+      const message = err.response?.data?.message || "Invalid username or password.";
+      if (errorTarget === "qr") setQrError(message);
+      else setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [onLoginSuccess, stopQrScan]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.username || !form.password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+    await loginWithCredentials(form.username, form.password, "form");
+  };
+
+  const handleQrLogin = useCallback(async (rawValue) => {
+    const creds = parseQrCredentials(rawValue);
+    if (!creds) {
+      setQrError("QR code not recognized. Use username:password or stockwave://login?u=...&p=...");
+      return;
+    }
+    await loginWithCredentials(creds.username, creds.password, "qr");
+  }, [loginWithCredentials]);
+
+  useEffect(() => {
+    if (!qrActive) {
+      stopQrScan();
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setQrError("Camera access is not available on this device.");
+      setQrActive(false);
+      return;
+    }
+
+    let cancelled = false;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const start = async () => {
+      try {
+        setQrError("");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+
+        const scanFrame = () => {
+          if (cancelled || !videoRef.current) return;
+          const video = videoRef.current;
+
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height,
+            );
+            const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+            if (code?.data) {
+              stopQrScan();
+              setQrActive(false);
+              handleQrLogin(code.data);
+              return;
+            }
+          }
+
+          rafRef.current = requestAnimationFrame(scanFrame);
+        };
+
+        rafRef.current = requestAnimationFrame(scanFrame);
+      } catch {
+        stopQrScan();
+        setQrActive(false);
+        setQrError("Camera access was blocked. Allow access and try again.");
+      }
+    };
+
+    start();
+    return () => {
+      cancelled = true;
+      stopQrScan();
+    };
+  }, [qrActive, handleQrLogin, stopQrScan]);
+
+  const toggleQr = () => {
+    if (loading) return;
+    setQrError("");
+    setQrActive((v) => !v);
+  };
+
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setError("");
+    setQrError("");
+    setQrActive(false);
+    stopQrScan();
+  };
 
   return (
     <div className="login-root">
@@ -44,7 +213,7 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
             Stock<span>Wave</span>
           </h1>
           <p className="brand-sub">
-            Manage your inventory smarter with gesture and voice controls.
+            Manage your inventory smarter with voice controls and QR sign-in.
           </p>
           <div className="brand-stats">
           </div>
@@ -96,7 +265,28 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
           <h2 className="login-heading">Welcome back</h2>
           <p className="login-sub">Sign in to your account to continue</p>
 
-          {error && (
+          <div className="login-tabs" role="tablist" aria-label="Login options">
+            <button
+              type="button"
+              className={`login-tab ${activeTab === "credentials" ? "active" : ""}`}
+              onClick={() => switchTab("credentials")}
+              role="tab"
+              aria-selected={activeTab === "credentials"}
+            >
+              Credentials
+            </button>
+            <button
+              type="button"
+              className={`login-tab ${activeTab === "qr" ? "active" : ""}`}
+              onClick={() => switchTab("qr")}
+              role="tab"
+              aria-selected={activeTab === "qr"}
+            >
+              QR Scan
+            </button>
+          </div>
+
+          {activeTab === "credentials" && error && (
             <div className="login-error">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <circle
@@ -117,160 +307,191 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
             </div>
           )}
 
-          <form className="login-form" onSubmit={handleSubmit}>
-            {/* Username */}
-            <div className="field-group">
-              <label className="field-label" htmlFor="username">
-                Username
-              </label>
-              <div className="field-wrap">
-                <svg
-                  className="field-icon"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    cx="12"
-                    cy="8"
-                    r="4"
-                    stroke="#aaa"
-                    strokeWidth="1.5"
+          {activeTab === "credentials" && (
+            <form className="login-form" onSubmit={handleSubmit}>
+              {/* Username */}
+              <div className="field-group">
+                <label className="field-label" htmlFor="username">
+                  Username
+                </label>
+                <div className="field-wrap">
+                  <svg
+                    className="field-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="12"
+                      cy="8"
+                      r="4"
+                      stroke="#aaa"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
+                      stroke="#aaa"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    className="field-input"
+                    placeholder="Enter your username"
+                    value={form.username}
+                    onChange={handleChange}
+                    autoComplete="username"
                   />
-                  <path
-                    d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
-                    stroke="#aaa"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  className="field-input"
-                  placeholder="Enter your username"
-                  value={form.username}
-                  onChange={handleChange}
-                  autoComplete="username"
-                />
+                </div>
               </div>
-            </div>
 
-            {/* Password */}
-            <div className="field-group">
-              <label className="field-label" htmlFor="password">
-                Password
-              </label>
-              <div className="field-wrap">
-                <svg
-                  className="field-icon"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <rect
-                    x="5"
-                    y="11"
-                    width="14"
-                    height="10"
-                    rx="2"
-                    stroke="#aaa"
-                    strokeWidth="1.5"
+              {/* Password */}
+              <div className="field-group">
+                <label className="field-label" htmlFor="password">
+                  Password
+                </label>
+                <div className="field-wrap">
+                  <svg
+                    className="field-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="5"
+                      y="11"
+                      width="14"
+                      height="10"
+                      rx="2"
+                      stroke="#aaa"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M8 11V7a4 4 0 018 0v4"
+                      stroke="#aaa"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    className="field-input"
+                    placeholder="Enter your password"
+                    value={form.password}
+                    onChange={handleChange}
+                    autoComplete="current-password"
                   />
-                  <path
-                    d="M8 11V7a4 4 0 018 0v4"
-                    stroke="#aaa"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
+                  <button
+                    type="button"
+                    className="show-pass-btn"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M3 3l18 18M10.5 10.677A3 3 0 0113.323 13.5M6.362 6.368A9.955 9.955 0 002.1 12c1.69 4.07 5.73 7 9.9 7a9.95 9.95 0 005.638-1.738M9 5.34A9.946 9.946 0 0112 5c4.17 0 8.21 2.93 9.9 7a10.036 10.036 0 01-2.415 3.585"
+                          stroke="#aaa"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M2.1 12C3.79 7.93 7.83 5 12 5s8.21 2.93 9.9 7c-1.69 4.07-5.73 7-9.9 7S3.79 16.07 2.1 12z"
+                          stroke="#aaa"
+                          strokeWidth="1.5"
+                        />
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="3"
+                          stroke="#aaa"
+                          strokeWidth="1.5"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember Me */}
+              <div className="remember-row">
+                <label className="remember-label">
+                  <input
+                    type="checkbox"
+                    name="remember"
+                    className="remember-check"
+                    checked={form.remember}
+                    onChange={handleChange}
                   />
-                </svg>
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  className="field-input"
-                  placeholder="Enter your password"
-                  value={form.password}
-                  onChange={handleChange}
-                  autoComplete="current-password"
-                />
+                  <span className="checkmark" />
+                  Remember me
+                </label>
+                <a href="#" className="forgot-link">
+                  Forgot password?
+                </a>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                className={`login-btn ${loading ? "loading" : ""}`}
+                disabled={loading}
+              >
+                {loading ? <span className="spinner" /> : "Sign In"}
+              </button>
+
+              {/* Go to Register */}
+              <p className="back-to-login">
+                Don't have an account?{" "}
                 <button
                   type="button"
-                  className="show-pass-btn"
-                  onClick={() => setShowPassword((v) => !v)}
-                  tabIndex={-1}
+                  className="back-link"
+                  onClick={onGoRegister}
                 >
-                  {showPassword ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M3 3l18 18M10.5 10.677A3 3 0 0113.323 13.5M6.362 6.368A9.955 9.955 0 002.1 12c1.69 4.07 5.73 7 9.9 7a9.95 9.95 0 005.638-1.738M9 5.34A9.946 9.946 0 0112 5c4.17 0 8.21 2.93 9.9 7a10.036 10.036 0 01-2.415 3.585"
-                        stroke="#aaa"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M2.1 12C3.79 7.93 7.83 5 12 5s8.21 2.93 9.9 7c-1.69 4.07-5.73 7-9.9 7S3.79 16.07 2.1 12z"
-                        stroke="#aaa"
-                        strokeWidth="1.5"
-                      />
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="3"
-                        stroke="#aaa"
-                        strokeWidth="1.5"
-                      />
-                    </svg>
-                  )}
+                  Create one
                 </button>
+              </p>
+            </form>
+          )}
+
+          {activeTab === "qr" && (
+            <div className="qr-login">
+              <div className="qr-head">
+                <p className="qr-title">Scan QR to sign in</p>
+                <p className="qr-sub">Use a QR code generated by your admin or mobile app.</p>
               </div>
+              <div className={`qr-frame ${qrActive ? "active" : ""}`}>
+                {qrActive ? (
+                  <video ref={videoRef} className="qr-video" />
+                ) : (
+                  <div className="qr-placeholder">
+                    <div className="qr-icon">QR</div>
+                    <p>Camera is off</p>
+                  </div>
+                )}
+              </div>
+              {qrError && <div className="qr-error">{qrError}</div>}
+              <div className="qr-actions">
+                <button type="button" className="qr-btn" onClick={toggleQr} disabled={loading}>
+                  {qrActive ? "Stop scan" : "Start scan"}
+                </button>
+                {qrActive && <span className="qr-status">Scanning...</span>}
+              </div>
+              <p className="qr-hint">
+                Accepted QR format: username:password or stockwave://login?u=...&p=...
+              </p>
             </div>
-
-            {/* Remember Me */}
-            <div className="remember-row">
-              <label className="remember-label">
-                <input
-                  type="checkbox"
-                  name="remember"
-                  className="remember-check"
-                  checked={form.remember}
-                  onChange={handleChange}
-                />
-                <span className="checkmark" />
-                Remember me
-              </label>
-              <a href="#" className="forgot-link">
-                Forgot password?
-              </a>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              className={`login-btn ${loading ? "loading" : ""}`}
-              disabled={loading}
-            >
-              {loading ? <span className="spinner" /> : "Sign In"}
-            </button>
-
-            {/* Go to Register */}
-            <p className="back-to-login">
-              Don't have an account?{" "}
-              <button
-                type="button"
-                className="back-link"
-                onClick={onGoRegister}
-              >
-                Create one
-              </button>
-            </p>
-          </form>
+          )}
 
           <p className="login-footer">
             StockWave &copy; {new Date().getFullYear()} &mdash; Touchless

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import Notifications from "../components/Notifications";
 import VoiceControl from "../components/VoiceControl";
-import GestureControl from "../components/GestureControl";
 import "./Dashboard.css";
 import Inventory from "./Inventory";
 import Reports from "./Reports";
@@ -74,22 +73,6 @@ export default function Dashboard({ onLogout }) {
   if (command === "add_product") setActivePage("inventory");
 };
 
-  const handleGestureCommand = (gesture) => {
-    const pages = ["dashboard", "inventory", "reports", "users", "settings"];
-    const currentIndex = pages.indexOf(activePage);
-
-    if (gesture === "open_palm") setActivePage("dashboard");
-    if (gesture === "fist") setActivePage("dashboard");
-    if (gesture === "point_up") {
-      const prev = pages[currentIndex - 1];
-      if (prev) setActivePage(prev);
-    }
-    if (gesture === "peace") {
-      const next = pages[currentIndex + 1];
-      if (next) setActivePage(next);
-    }
-    if (gesture === "thumbs_up") setActivePage("inventory");
-  };
 
   const renderPage = () => {
     if (activePage === "inventory") return <Inventory />;
@@ -167,18 +150,10 @@ export default function Dashboard({ onLogout }) {
             <p className="page-sub">{sub}</p>
           </div>
           <div className="header-right">
-            <GestureControl onGesture={handleGestureCommand} />
             <VoiceControl onCommand={handleVoiceCommand} />
             <button className="notif-btn">
               <Notifications />
             </button>
-            <div className="search-wrap">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <circle cx="11" cy="11" r="8" stroke="#aaa" strokeWidth="1.5"/>
-                <path d="M21 21l-4.35-4.35" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              <input className="search-input" placeholder="Search products..." />
-            </div>
           </div>
         </header>
 
