@@ -15,17 +15,48 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
+  const scanIntervalRef = useRef(null);
+  const lastScanRef = useRef({ value: "", count: 0, at: 0 });
+
+  const QR_CONFIRMATION_COUNT = 3;
+  const QR_SCAN_INTERVAL_MS = 250;
 
   const stopQrScan = useCallback(() => {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+    if (scanIntervalRef.current) {
+      clearTimeout(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    lastScanRef.current = { value: "", count: 0, at: 0 };
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
   }, []);
+
+  const markQrCandidate = useCallback(
+    (value) => {
+      const trimmed = value.trim();
+      if (!trimmed) return false;
+
+      const now = Date.now();
+      const previous = lastScanRef.current;
+      const sameValue = previous.value === trimmed && now - previous.at < 1500;
+      const nextCount = sameValue ? previous.count + 1 : 1;
+
+      lastScanRef.current = {
+        value: trimmed,
+        count: nextCount,
+        at: now,
+      };
+
+      return nextCount >= QR_CONFIRMATION_COUNT;
+    },
+    []
+  );
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -105,6 +136,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
         setQrError("QR code not recognized. Use username:password or stockwave://login?u=...&p=...");
         return;
       }
+
       await loginWithCredentials(creds.username, creds.password, "qr");
     },
     [parseQrCredentials, loginWithCredentials]
@@ -118,7 +150,10 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      // Camera not available, will be handled in effect
+      window.setTimeout(() => {
+        setQrError("Camera access is not available on this device.");
+        setQrActive(false);
+      }, 0);
       return;
     }
 
@@ -155,21 +190,31 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
             const detector = new BarcodeDetector({ formats: ["qr_code"] });
             const scanFrame = async () => {
               if (cancelled || !videoRef.current) return;
+
+              if (scanIntervalRef.current) return;
+
               try {
                 const codes = await detector.detect(videoRef.current);
                 if (codes && codes.length > 0) {
                   const value = codes[0]?.rawValue || "";
-                  stopQrScan();
-                  setQrActive(false);
-                  if (value) handleQrLogin(value);
-                  else setQrError("QR code is empty.");
-                  return;
+                  if (value && markQrCandidate(value)) {
+                    stopQrScan();
+                    setQrActive(false);
+                    handleQrLogin(value);
+                    return;
+                  }
+                  if (!value) {
+                    setQrError("QR code is empty.");
+                  }
                 }
-              } catch (e) {
+              } catch (scanErr) {
                 // fall through to jsQR fallback
-                console.warn("BarcodeDetector failed, falling back to jsQR:", e);
+                console.warn("BarcodeDetector failed, falling back to jsQR:", scanErr);
               }
-              rafRef.current = requestAnimationFrame(scanFrame);
+              scanIntervalRef.current = window.setTimeout(() => {
+                scanIntervalRef.current = null;
+                rafRef.current = requestAnimationFrame(scanFrame);
+              }, QR_SCAN_INTERVAL_MS);
             };
             rafRef.current = requestAnimationFrame(scanFrame);
             return;
@@ -200,22 +245,46 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
 
         const scanFrame = () => {
           if (cancelled || !videoRef.current) return;
+
+          if (scanIntervalRef.current) return;
+
           try {
-            canvas.width = videoRef.current.videoWidth || 320;
-            canvas.height = videoRef.current.videoHeight || 240;
-            ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            const videoWidth = videoRef.current.videoWidth || 0;
+            const videoHeight = videoRef.current.videoHeight || 0;
+            if (videoWidth < 240 || videoHeight < 240) {
+              scanIntervalRef.current = window.setTimeout(() => {
+                scanIntervalRef.current = null;
+                rafRef.current = requestAnimationFrame(scanFrame);
+              }, QR_SCAN_INTERVAL_MS);
+              return;
+            }
+
+            const minSide = Math.min(videoWidth, videoHeight);
+            const cropSize = Math.floor(minSide * 0.75);
+            const sourceX = Math.max(0, Math.floor((videoWidth - cropSize) / 2));
+            const sourceY = Math.max(0, Math.floor((videoHeight - cropSize) / 2));
+
+            canvas.width = cropSize;
+            canvas.height = cropSize;
+            ctx.drawImage(videoRef.current, sourceX, sourceY, cropSize, cropSize, 0, 0, cropSize, cropSize);
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const code = jsqr(imageData.data, imageData.width, imageData.height);
             if (code && code.data) {
-              stopQrScan();
-              setQrActive(false);
-              handleQrLogin(code.data);
-              return;
+              const rawValue = code.data.trim();
+              if (markQrCandidate(rawValue)) {
+                stopQrScan();
+                setQrActive(false);
+                handleQrLogin(rawValue);
+                return;
+              }
             }
           } catch (err) {
             console.error("QR scan error:", err);
           }
-          rafRef.current = requestAnimationFrame(scanFrame);
+          scanIntervalRef.current = window.setTimeout(() => {
+            scanIntervalRef.current = null;
+            rafRef.current = requestAnimationFrame(scanFrame);
+          }, QR_SCAN_INTERVAL_MS);
         };
 
         rafRef.current = requestAnimationFrame(scanFrame);
@@ -232,7 +301,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
       cancelled = true;
       stopQrScan();
     };
-  }, [qrActive, handleQrLogin, stopQrScan]);
+  }, [qrActive, handleQrLogin, markQrCandidate, stopQrScan]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -541,7 +610,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                 {qrActive && <span className="qr-status">Scanning...</span>}
               </div>
               <p className="qr-hint">
-                Accepted QR format: username:password or stockwave://login?u=...&p=...
+                Accepted QR format: username:password, stockwave://login?u=...&p=..., or JSON.
               </p>
             </div>
           )}
