@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 
 const GESTURE_COOLDOWN = 1500; // ms between gestures
 
@@ -8,6 +8,7 @@ export function useGesture({ onGesture, enabled = true }) {
   const handsRef = useRef(null);
   const cameraRef = useRef(null);
   const lastGestureTime = useRef(0);
+  const [cameraError, setCameraError] = useState(null);
 
   const detectGesture = useCallback((landmarks) => {
     const now = Date.now();
@@ -24,7 +25,6 @@ export function useGesture({ onGesture, enabled = true }) {
     const middleBase = landmarks[10];
     const ringBase = landmarks[14];
     const pinkyBase = landmarks[18];
-    const wrist = landmarks[0];
 
     // Is finger up? tip higher than base (lower y value)
     const indexUp = indexTip.y < indexBase.y;
@@ -72,14 +72,105 @@ export function useGesture({ onGesture, enabled = true }) {
   }, [onGesture]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      cameraRef.current?.stop();
+      return;
+    }
 
     let active = true;
 
     const loadHands = async () => {
       try {
-        const { Hands } = await import("@mediapipe/hands");
-        const { Camera } = await import("@mediapipe/camera_utils");
+        setCameraError(null);
+        // Load Mediapipe via CDN since npm packages don't export as proper ES modules.
+        // The libraries attach to window.Hands and window.Camera.
+        const loadScript = (src) =>
+          new Promise((resolve, reject) => {
+            if (window[src.includes("hands") ? "Hands" : "Camera"]) {
+              resolve(); // Already loaded
+              return;
+            }
+            const script = document.createElement("script");
+            script.src = src;
+            script.async = true;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(script);
+          });
+
+        // Load Mediapipe Hands and Camera from CDN
+        await loadScript(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240"
+        );
+        await loadScript(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862"
+        );
+
+        const Hands = window.Hands;
+        const Camera = window.Camera;
+
+        if (typeof Hands !== "function") {
+          throw new Error(`Hands not found on window; got ${typeof Hands}`);
+        }
+        if (typeof Camera !== "function") {
+          throw new Error(`Camera not found on window; got ${typeof Camera}`);
+        }
+
+        if (!active) return;
+
+        // Request camera permissions explicitly
+        try {
+          // Request camera permissions explicitly but don't hold the stream.
+          // Some browsers lock the camera if a stream is opened and not stopped,
+          // preventing Mediapipe's Camera from starting. Acquire the stream
+          // then immediately stop tracks to only prompt permissions.
+          const tmpStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 320, height: 240 },
+          });
+          tmpStream.getTracks().forEach((t) => t.stop());
+        } catch (permErr) {
+          if (permErr.name === "NotAllowedError") {
+            setCameraError("Camera permission denied. Please enable camera access in your browser settings.");
+          } else if (permErr.name === "NotFoundError") {
+            setCameraError("No camera found on this device.");
+          } else {
+            setCameraError(`Camera error: ${permErr.message}`);
+          }
+          console.error("Camera permission error:", permErr);
+          return;
+        }
+
+        // Ensure the video element is attached to the ref before creating Camera.
+        // React may not have attached the ref by the time this runs, so poll briefly.
+        const waitForVideo = (timeout = 2000) =>
+          new Promise((resolve) => {
+            const interval = 50;
+            let waited = 0;
+            const id = setInterval(() => {
+              if (!active) {
+                clearInterval(id);
+                resolve(false);
+                return;
+              }
+              if (videoRef.current) {
+                clearInterval(id);
+                resolve(true);
+                return;
+              }
+              waited += interval;
+              if (waited >= timeout) {
+                clearInterval(id);
+                resolve(false);
+              }
+            }, interval);
+          });
+
+        if (!active) return;
+        const videoReady = videoRef.current || (await waitForVideo(2000));
+        if (!videoReady) {
+          setCameraError("Video element not ready. Try opening the gesture panel again.");
+          return;
+        }
 
         const hands = new Hands({
           locateFile: (file) =>
@@ -102,21 +193,28 @@ export function useGesture({ onGesture, enabled = true }) {
 
         handsRef.current = hands;
 
-        if (videoRef.current) {
+        if (videoRef.current && active) {
           const camera = new Camera(videoRef.current, {
             onFrame: async () => {
-              if (videoRef.current && handsRef.current) {
+              if (videoRef.current && handsRef.current && active) {
                 await handsRef.current.send({ image: videoRef.current });
               }
             },
             width: 320,
             height: 240,
           });
-          camera.start();
-          cameraRef.current = camera;
+          
+          try {
+            await camera.start();
+            cameraRef.current = camera;
+          } catch (cameraStartErr) {
+            setCameraError("Failed to start camera. Please try again.");
+            console.error("Camera start failed:", cameraStartErr);
+          }
         }
       } catch (err) {
         console.error("Gesture init failed:", err);
+        setCameraError(`Failed to initialize gesture control: ${err?.message ?? err}`);
       }
     };
 
@@ -129,5 +227,5 @@ export function useGesture({ onGesture, enabled = true }) {
     };
   }, [enabled, detectGesture]);
 
-  return { videoRef, canvasRef };
+  return { videoRef, canvasRef, cameraError };
 }

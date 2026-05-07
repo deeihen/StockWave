@@ -1,70 +1,99 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
 import { loginUser } from "../api/stockwaveApi";
-import jsQR from "jsqr";  
 
-export default function Login({ onGoRegister, onLoginSuccess }) {
-  const [form, setForm] = useState({ username: "", password: "", remember: false });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+export default function Login({ onLoginSuccess, onGoRegister }) {
   const [activeTab, setActiveTab] = useState("credentials");
+  const [form, setForm] = useState({ username: "", password: "", remember: false });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // QR Scan state
   const [qrActive, setQrActive] = useState(false);
   const [qrError, setQrError] = useState("");
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const rafRef = useRef(0);
+  const rafRef = useRef(null);
+  const scanIntervalRef = useRef(null);
+  const lastScanRef = useRef({ value: "", count: 0, at: 0 });
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
-    if (error) setError("");
-  };
+  const QR_CONFIRMATION_COUNT = 3;
+  const QR_SCAN_INTERVAL_MS = 250;
 
   const stopQrScan = useCallback(() => {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
+      rafRef.current = null;
     }
+    if (scanIntervalRef.current) {
+      clearTimeout(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    lastScanRef.current = { value: "", count: 0, at: 0 };
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
   }, []);
 
-  const parseQrCredentials = (rawValue) => {
-    if (!rawValue) return null;
-    const trimmed = rawValue.trim();
+  const markQrCandidate = useCallback(
+    (value) => {
+      const trimmed = value.trim();
+      if (!trimmed) return false;
 
+      const now = Date.now();
+      const previous = lastScanRef.current;
+      const sameValue = previous.value === trimmed && now - previous.at < 1500;
+      const nextCount = sameValue ? previous.count + 1 : 1;
+
+      lastScanRef.current = {
+        value: trimmed,
+        count: nextCount,
+        at: now,
+      };
+
+      return nextCount >= QR_CONFIRMATION_COUNT;
+    },
+    []
+  );
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  // Parse QR code data in multiple formats
+  const parseQrCredentials = useCallback((rawValue) => {
+    if (!rawValue || typeof rawValue !== "string") return null;
+
+    // Try JSON format: {"username":"user","password":"pass"}
     try {
-      const obj = JSON.parse(trimmed);
-      const username = obj.username || obj.user || obj.u;
-      const password = obj.password || obj.pass || obj.p;
-      if (username && password) return { username, password };
+      const parsed = JSON.parse(rawValue);
+      if (parsed.username && parsed.password) {
+        return { username: parsed.username, password: parsed.password };
+      }
     } catch {
-      // Not JSON
+      // Not JSON format, try next format
     }
 
-    const parseUrl = (value) => {
-      try {
-        const url = new URL(value);
-        const username = url.searchParams.get("u") || url.searchParams.get("username");
-        const password = url.searchParams.get("p") || url.searchParams.get("password");
-        if (username && password) return { username, password };
-      } catch {
-        return null;
-      }
-      return null;
-    };
+    // Try URL format: stockwave://login?u=user&p=pass or https://...?u=user&p=pass
+    try {
+      const url = new URL(rawValue);
+      const u = url.searchParams.get("u") || url.searchParams.get("username");
+      const p = url.searchParams.get("p") || url.searchParams.get("password");
+      if (u && p) return { username: u, password: p };
+    } catch {
+      // Not a URL format, try next format
+    }
 
-    const urlCreds = parseUrl(trimmed) || parseUrl(trimmed.replace(/^stockwave:\/\//, "http://"));
-    if (urlCreds) return urlCreds;
-
-    const separators = ["|", ":", ","];
+    // Try separator formats: "user:pass", "user|pass", "user,pass"
+    const separators = [":", "|", ","];
     for (const sep of separators) {
+      const trimmed = rawValue.trim();
       const idx = trimmed.indexOf(sep);
       if (idx > 0) {
         const username = trimmed.slice(0, idx).trim();
@@ -74,28 +103,205 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
     }
 
     return null;
-  };
+  }, []);
 
-  const loginWithCredentials = useCallback(async (username, password, errorTarget = "form") => {
-    setLoading(true);
-    setError("");
-    setQrError("");
-    setQrActive(false);
-    stopQrScan();
+  const loginWithCredentials = useCallback(
+    async (username, password, errorTarget = "form") => {
+      setLoading(true);
+      setError("");
+      setQrError("");
+      setQrActive(false);
+      stopQrScan();
 
-    try {
-      const res = await loginUser({ username, password });
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      if (onLoginSuccess) onLoginSuccess();
-    } catch (err) {
-      const message = err.response?.data?.message || "Invalid username or password.";
-      if (errorTarget === "qr") setQrError(message);
-      else setError(message);
-    } finally {
-      setLoading(false);
+      try {
+        const res = await loginUser({ username, password });
+        localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        if (onLoginSuccess) onLoginSuccess();
+      } catch (err) {
+        const message = err.response?.data?.message || "Invalid username or password.";
+        if (errorTarget === "qr") setQrError(message);
+        else setError(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [stopQrScan, onLoginSuccess]
+  );
+
+  const handleQrLogin = useCallback(
+    async (rawValue) => {
+      const creds = parseQrCredentials(rawValue);
+      if (!creds) {
+        setQrError("QR code not recognized. Use username:password or stockwave://login?u=...&p=...");
+        return;
+      }
+
+      await loginWithCredentials(creds.username, creds.password, "qr");
+    },
+    [parseQrCredentials, loginWithCredentials]
+  );
+
+  // QR Scanning Effect
+  useEffect(() => {
+    if (!qrActive) {
+      stopQrScan();
+      return;
     }
-  }, [onLoginSuccess, stopQrScan]);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      window.setTimeout(() => {
+        setQrError("Camera access is not available on this device.");
+        setQrActive(false);
+      }, 0);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadJsQrFromCdn = () =>
+      new Promise((resolve, reject) => {
+        if (window.jsQR) return resolve(window.jsQR);
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+        s.async = true;
+        s.onload = () => resolve(window.jsQR);
+        s.onerror = () => reject(new Error("Failed to load jsQR from CDN"));
+        document.head.appendChild(s);
+      });
+
+    const start = async () => {
+      try {
+        setQrError("");
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+
+        // Prefer native BarcodeDetector when available (faster/hardware-accelerated)
+        if (window.BarcodeDetector) {
+          try {
+            const detector = new BarcodeDetector({ formats: ["qr_code"] });
+            const scanFrame = async () => {
+              if (cancelled || !videoRef.current) return;
+
+              if (scanIntervalRef.current) return;
+
+              try {
+                const codes = await detector.detect(videoRef.current);
+                if (codes && codes.length > 0) {
+                  const value = codes[0]?.rawValue || "";
+                  if (value && markQrCandidate(value)) {
+                    stopQrScan();
+                    setQrActive(false);
+                    handleQrLogin(value);
+                    return;
+                  }
+                  if (!value) {
+                    setQrError("QR code is empty.");
+                  }
+                }
+              } catch (scanErr) {
+                // fall through to jsQR fallback
+                console.warn("BarcodeDetector failed, falling back to jsQR:", scanErr);
+              }
+              scanIntervalRef.current = window.setTimeout(() => {
+                scanIntervalRef.current = null;
+                rafRef.current = requestAnimationFrame(scanFrame);
+              }, QR_SCAN_INTERVAL_MS);
+            };
+            rafRef.current = requestAnimationFrame(scanFrame);
+            return;
+          } catch (bdErr) {
+            console.warn("BarcodeDetector initialization failed:", bdErr);
+            // continue to fallback
+          }
+        }
+
+        // Fallback to jsQR (imported or loaded from CDN)
+        let jsqr = null;
+        if (window.jsQR) {
+          jsqr = window.jsQR;
+        }
+        if (!jsqr) {
+          try {
+            jsqr = await loadJsQrFromCdn();
+          } catch {
+            stopQrScan();
+            setQrActive(false);
+            setQrError("QR scanner library failed to load.");
+            return;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const scanFrame = () => {
+          if (cancelled || !videoRef.current) return;
+
+          if (scanIntervalRef.current) return;
+
+          try {
+            const videoWidth = videoRef.current.videoWidth || 0;
+            const videoHeight = videoRef.current.videoHeight || 0;
+            if (videoWidth < 240 || videoHeight < 240) {
+              scanIntervalRef.current = window.setTimeout(() => {
+                scanIntervalRef.current = null;
+                rafRef.current = requestAnimationFrame(scanFrame);
+              }, QR_SCAN_INTERVAL_MS);
+              return;
+            }
+
+            const minSide = Math.min(videoWidth, videoHeight);
+            const cropSize = Math.floor(minSide * 0.75);
+            const sourceX = Math.max(0, Math.floor((videoWidth - cropSize) / 2));
+            const sourceY = Math.max(0, Math.floor((videoHeight - cropSize) / 2));
+
+            canvas.width = cropSize;
+            canvas.height = cropSize;
+            ctx.drawImage(videoRef.current, sourceX, sourceY, cropSize, cropSize, 0, 0, cropSize, cropSize);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsqr(imageData.data, imageData.width, imageData.height);
+            if (code && code.data) {
+              const rawValue = code.data.trim();
+              if (markQrCandidate(rawValue)) {
+                stopQrScan();
+                setQrActive(false);
+                handleQrLogin(rawValue);
+                return;
+              }
+            }
+          } catch (err) {
+            console.error("QR scan error:", err);
+          }
+          scanIntervalRef.current = window.setTimeout(() => {
+            scanIntervalRef.current = null;
+            rafRef.current = requestAnimationFrame(scanFrame);
+          }, QR_SCAN_INTERVAL_MS);
+        };
+
+        rafRef.current = requestAnimationFrame(scanFrame);
+      } catch (err) {
+        stopQrScan();
+        setQrActive(false);
+        setQrError("Failed to start camera: " + err.message);
+      }
+    };
+
+    start();
+
+    return () => {
+      cancelled = true;
+      stopQrScan();
+    };
+  }, [qrActive, handleQrLogin, markQrCandidate, stopQrScan]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -105,90 +311,6 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
     }
     await loginWithCredentials(form.username, form.password, "form");
   };
-
-  const handleQrLogin = useCallback(async (rawValue) => {
-    const creds = parseQrCredentials(rawValue);
-    if (!creds) {
-      setQrError("QR code not recognized. Use username:password or stockwave://login?u=...&p=...");
-      return;
-    }
-    await loginWithCredentials(creds.username, creds.password, "qr");
-  }, [loginWithCredentials]);
-
-  useEffect(() => {
-    if (!qrActive) {
-      stopQrScan();
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setQrError("Camera access is not available on this device.");
-      setQrActive(false);
-      return;
-    }
-
-    let cancelled = false;
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    const start = async () => {
-      try {
-        setQrError("");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-
-        const scanFrame = () => {
-          if (cancelled || !videoRef.current) return;
-          const video = videoRef.current;
-
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(
-              0,
-              0,
-              canvas.width,
-              canvas.height,
-            );
-            const code = jsQR(imageData.data, canvas.width, canvas.height);
-
-            if (code?.data) {
-              stopQrScan();
-              setQrActive(false);
-              handleQrLogin(code.data);
-              return;
-            }
-          }
-
-          rafRef.current = requestAnimationFrame(scanFrame);
-        };
-
-        rafRef.current = requestAnimationFrame(scanFrame);
-      } catch {
-        stopQrScan();
-        setQrActive(false);
-        setQrError("Camera access was blocked. Allow access and try again.");
-      }
-    };
-
-    start();
-    return () => {
-      cancelled = true;
-      stopQrScan();
-    };
-  }, [qrActive, handleQrLogin, stopQrScan]);
 
   const toggleQr = () => {
     if (loading) return;
@@ -488,7 +610,7 @@ export default function Login({ onGoRegister, onLoginSuccess }) {
                 {qrActive && <span className="qr-status">Scanning...</span>}
               </div>
               <p className="qr-hint">
-                Accepted QR format: username:password or stockwave://login?u=...&p=...
+                Accepted QR format: username:password, stockwave://login?u=...&p=..., or JSON.
               </p>
             </div>
           )}
