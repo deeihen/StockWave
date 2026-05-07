@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
 import { loginUser } from "../api/stockwaveApi";
+import { useActionGuard } from "../hooks/useActionGuard";
 
 export default function Login({ onLoginSuccess, onGoRegister }) {
   const [activeTab, setActiveTab] = useState("credentials");
@@ -8,6 +9,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { run, isRunning } = useActionGuard(500);
 
   // QR Scan state
   const [qrActive, setQrActive] = useState(false);
@@ -107,26 +109,28 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
 
   const loginWithCredentials = useCallback(
     async (username, password, errorTarget = "form") => {
-      setLoading(true);
-      setError("");
-      setQrError("");
-      setQrActive(false);
-      stopQrScan();
+      await run("login", async () => {
+        setLoading(true);
+        setError("");
+        setQrError("");
+        setQrActive(false);
+        stopQrScan();
 
-      try {
-        const res = await loginUser({ username, password });
-        localStorage.setItem("token", res.data.token);
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-        if (onLoginSuccess) onLoginSuccess();
-      } catch (err) {
-        const message = err.response?.data?.message || "Invalid username or password.";
-        if (errorTarget === "qr") setQrError(message);
-        else setError(message);
-      } finally {
-        setLoading(false);
-      }
+        try {
+          const res = await loginUser({ username, password });
+          localStorage.setItem("token", res.data.token);
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+          if (onLoginSuccess) onLoginSuccess();
+        } catch (err) {
+          const message = err.response?.data?.message || "Invalid username or password.";
+          if (errorTarget === "qr") setQrError(message);
+          else setError(message);
+        } finally {
+          setLoading(false);
+        }
+      });
     },
-    [stopQrScan, onLoginSuccess]
+      [stopQrScan, onLoginSuccess, run]
   );
 
   const handleQrLogin = useCallback(
@@ -314,8 +318,10 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
 
   const toggleQr = () => {
     if (loading) return;
-    setQrError("");
-    setQrActive((v) => !v);
+      run("qr-toggle", async () => {
+        setQrError("");
+        setQrActive((v) => !v);
+      });
   };
 
   const switchTab = (tab) => {
@@ -567,7 +573,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
               <button
                 type="submit"
                 className={`login-btn ${loading ? "loading" : ""}`}
-                disabled={loading}
+                disabled={loading || isRunning("login")}
               >
                 {loading ? <span className="spinner" /> : "Sign In"}
               </button>
@@ -604,7 +610,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
               </div>
               {qrError && <div className="qr-error">{qrError}</div>}
               <div className="qr-actions">
-                <button type="button" className="qr-btn" onClick={toggleQr} disabled={loading}>
+                <button type="button" className="qr-btn" onClick={toggleQr} disabled={loading || isRunning("qr-toggle") || isRunning("login")}>
                   {qrActive ? "Stop scan" : "Start scan"}
                 </button>
                 {qrActive && <span className="qr-status">Scanning...</span>}

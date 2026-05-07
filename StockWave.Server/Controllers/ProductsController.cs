@@ -40,11 +40,29 @@ namespace StockWave.Server.Controllers
         public async Task<IActionResult> Create([FromBody] ProductDto dto)
         {
             var userId = GetUserId();
+            var name = (dto.Name ?? string.Empty).Trim();
+            var category = (dto.Category ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(category) || dto.Stock < 0 || dto.Price < 0 || string.IsNullOrWhiteSpace(dto.Unit))
+            {
+                return BadRequest(new { message = "Please provide valid product details." });
+            }
+
+            var exists = await _db.Products.AnyAsync(p =>
+                p.UserId == userId &&
+                p.Name.ToLower() == name.ToLower() &&
+                p.Category.ToLower() == category.ToLower());
+
+            if (exists)
+            {
+                return Conflict(new { message = "A product with the same name and category already exists." });
+            }
+
             var product = new Product
             {
                 UserId = userId,
-                Name = dto.Name,
-                Category = dto.Category,
+                Name = name,
+                Category = category,
                 Stock = dto.Stock,
                 Price = dto.Price,
                 Unit = dto.Unit,
@@ -78,10 +96,29 @@ namespace StockWave.Server.Controllers
                 .FirstOrDefaultAsync(p => p.Id == id);
             if (product == null) return NotFound(new { message = "Product not found." });
 
+            var name = (dto.Name ?? string.Empty).Trim();
+            var category = (dto.Category ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(category) || dto.Stock < 0 || dto.Price < 0 || string.IsNullOrWhiteSpace(dto.Unit))
+            {
+                return BadRequest(new { message = "Please provide valid product details." });
+            }
+
+            var exists = await _db.Products.AnyAsync(p =>
+                p.UserId == product.UserId &&
+                p.Id != product.Id &&
+                p.Name.ToLower() == name.ToLower() &&
+                p.Category.ToLower() == category.ToLower());
+
+            if (exists)
+            {
+                return Conflict(new { message = "A product with the same name and category already exists." });
+            }
+
             var oldStock = product.Stock;
 
-            product.Name = dto.Name;
-            product.Category = dto.Category;
+            product.Name = name;
+            product.Category = category;
             product.Stock = dto.Stock;
             product.Price = dto.Price;
             product.Unit = dto.Unit;

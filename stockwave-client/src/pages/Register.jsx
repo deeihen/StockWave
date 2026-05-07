@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./Register.css";
 import { registerUser } from "../api/stockwaveApi";
+import { useActionGuard } from "../hooks/useActionGuard";
 
 export default function Register({ onGoLogin }) {
   const [form, setForm] = useState({
@@ -15,6 +16,7 @@ export default function Register({ onGoLogin }) {
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const { run, isRunning } = useActionGuard(500);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -35,27 +37,29 @@ export default function Register({ onGoLogin }) {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  const validationError = validate();
-  if (validationError) { setError(validationError); return; }
+    e.preventDefault();
+    const validationError = validate();
+    if (validationError) { setError(validationError); return; }
 
-  setLoading(true);
-  setError("");
+    await run("register", async () => {
+      setLoading(true);
+      setError("");
 
-  try {
-    await registerUser({
-      fullName: form.fullName,
-      username: form.username,
-      email: form.email,
-      password: form.password
+      try {
+        await registerUser({
+          fullName: form.fullName,
+          username: form.username,
+          email: form.email,
+          password: form.password
+        });
+        setSuccess(true);
+      } catch (err) {
+        setError(err.response?.data?.message || "Registration failed. Try again.");
+      } finally {
+        setLoading(false);
+      }
     });
-    setSuccess(true);
-  } catch (err) {
-    setError(err.response?.data?.message || "Registration failed. Try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   if (success) { onGoLogin();
   }
@@ -219,7 +223,7 @@ export default function Register({ onGoLogin }) {
             </div>
 
             {/* Submit */}
-            <button type="submit" className="reg-btn" disabled={loading}>
+            <button type="submit" className="reg-btn" disabled={loading || isRunning("register")}>
               {loading ? <span className="spinner" /> : "Create Account"}
             </button>
 

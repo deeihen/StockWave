@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { getUsers, updateUser, deleteUser } from "../api/stockwaveApi";
 import "./Users.css";
+import { useActionGuard } from "../hooks/useActionGuard";
 
 const avatarColors = ["#1a6b3c", "#2563eb", "#7c3aed", "#d97706", "#ef4444", "#0891b2"];
 
 const emptyForm = { name: "", username: "", email: "" };
 
 // ── User Modal ─────────────────────────────────────
-function UserModal({ mode, user, onClose, onSave }) {
+function UserModal({ mode, user, onClose, onSave, saving }) {
   const [form, setForm] = useState(user || emptyForm);
   const [error, setError] = useState("");
 
@@ -17,6 +18,7 @@ function UserModal({ mode, user, onClose, onSave }) {
   };
 
   const handleSubmit = () => {
+    if (saving) return;
     if (!form.name || !form.username || !form.email) {
       setError("Please fill in all required fields."); return;
     }
@@ -70,9 +72,9 @@ function UserModal({ mode, user, onClose, onSave }) {
         </div>
 
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="btn-save" onClick={handleSubmit}>
-            {mode === "add" ? "Add User" : "Save Changes"}
+          <button className="btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn-save" onClick={handleSubmit} disabled={saving}>
+            {saving ? "Saving..." : (mode === "add" ? "Add User" : "Save Changes")}
           </button>
         </div>
       </div>
@@ -81,7 +83,7 @@ function UserModal({ mode, user, onClose, onSave }) {
 }
 
 // ── Delete Modal ───────────────────────────────────
-function DeleteModal({ user, onClose, onConfirm }) {
+function DeleteModal({ user, onClose, onConfirm, deleting }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card small" onClick={e => e.stopPropagation()}>
@@ -99,8 +101,10 @@ function DeleteModal({ user, onClose, onConfirm }) {
           </p>
         </div>
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="btn-delete" onClick={onConfirm}>Remove User</button>
+          <button className="btn-cancel" onClick={onClose} disabled={deleting}>Cancel</button>
+          <button className="btn-delete" onClick={onConfirm} disabled={deleting}>
+            {deleting ? "Removing..." : "Remove User"}
+          </button>
         </div>
       </div>
     </div>
@@ -157,6 +161,7 @@ function ViewUserModal({ user, onClose }) {
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { run, isRunning } = useActionGuard(500);
 
   useEffect(() => { fetchUsers(); }, []);
 
@@ -204,27 +209,31 @@ export default function Users() {
   };
 
   const handleEdit = async (data) => {
-    try {
-      await updateUser(modal.user.id, {
-        fullName: data.name,
-        username: data.username,
-        email: data.email,
-      });
-      await fetchUsers();
-      setModal(null);
-    } catch {
-      alert("Failed to update user.");
-    }
+    await run("edit-user", async () => {
+      try {
+        await updateUser(modal.user.id, {
+          fullName: data.name,
+          username: data.username,
+          email: data.email,
+        });
+        await fetchUsers();
+        setModal(null);
+      } catch {
+        alert("Failed to update user.");
+      }
+    });
   };
 
   const handleDelete = async () => {
-    try {
-      await deleteUser(modal.user.id);
-      await fetchUsers();
-      setModal(null);
-    } catch {
-      alert("Failed to delete user.");
-    }
+    await run("delete-user", async () => {
+      try {
+        await deleteUser(modal.user.id);
+        await fetchUsers();
+        setModal(null);
+      } catch {
+        alert("Failed to delete user.");
+      }
+    });
   };
 
   if (loading) return (
@@ -375,13 +384,13 @@ export default function Users() {
         <ViewUserModal user={modal.user} onClose={() => setModal(null)} />
       )}
       {modal?.type === "add" && (
-        <UserModal mode="add" onClose={() => setModal(null)} onSave={handleAdd} />
+        <UserModal mode="add" onClose={() => setModal(null)} onSave={handleAdd} saving={false} />
       )}
       {modal?.type === "edit" && (
-        <UserModal mode="edit" user={modal.user} onClose={() => setModal(null)} onSave={handleEdit} />
+        <UserModal mode="edit" user={modal.user} onClose={() => setModal(null)} onSave={handleEdit} saving={isRunning("edit-user")} />
       )}
       {modal?.type === "delete" && (
-        <DeleteModal user={modal.user} onClose={() => setModal(null)} onConfirm={handleDelete} />
+        <DeleteModal user={modal.user} onClose={() => setModal(null)} onConfirm={handleDelete} deleting={isRunning("delete-user")} />
       )}
     </div>
   );

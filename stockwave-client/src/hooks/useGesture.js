@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 
-const GESTURE_COOLDOWN = 1500; // ms between gestures
+const GESTURE_COOLDOWN = 500; // ms between gestures
+const GESTURE_REPEAT_MS = 1200; // allow same gesture repeat if held
 
 export function useGesture({ onGesture, enabled = true }) {
   const videoRef = useRef(null);
@@ -8,6 +9,7 @@ export function useGesture({ onGesture, enabled = true }) {
   const handsRef = useRef(null);
   const cameraRef = useRef(null);
   const lastGestureTime = useRef(0);
+  const lastGestureRef = useRef(null);
   const [cameraError, setCameraError] = useState(null);
 
   const detectGesture = useCallback((landmarks) => {
@@ -37,35 +39,63 @@ export function useGesture({ onGesture, enabled = true }) {
 
     // ── OPEN PALM (all 4 fingers up) → Confirm / Navigate
     if (indexUp && middleUp && ringUp && pinkyUp) {
+      if (lastGestureRef.current === "open_palm" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
       lastGestureTime.current = now;
+      lastGestureRef.current = "open_palm";
       onGesture("open_palm");
+      return;
+    }
+
+    // ── THREE FINGERS (index+middle+ring) → Start Voice
+    if (indexUp && middleUp && ringUp && !pinkyUp) {
+      if (lastGestureRef.current === "voice_start" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
+      lastGestureTime.current = now;
+      lastGestureRef.current = "voice_start";
+      onGesture("voice_start");
+      return;
+    }
+
+    // ── PINKY UP (only pinky) → Stop Camera
+    if (!indexUp && !middleUp && !ringUp && pinkyUp) {
+      if (lastGestureRef.current === "stop_camera" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
+      lastGestureTime.current = now;
+      lastGestureRef.current = "stop_camera";
+      onGesture("stop_camera");
       return;
     }
 
     // ── FIST (all fingers down) → Cancel
     if (!indexUp && !middleUp && !ringUp && !pinkyUp) {
+      if (lastGestureRef.current === "fist" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
       lastGestureTime.current = now;
+      lastGestureRef.current = "fist";
       onGesture("fist");
       return;
     }
 
     // ── POINT UP (only index up) → Scroll up / Previous
     if (indexUp && !middleUp && !ringUp && !pinkyUp) {
+      if (lastGestureRef.current === "point_up" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
       lastGestureTime.current = now;
+      lastGestureRef.current = "point_up";
       onGesture("point_up");
       return;
     }
 
     // ── PEACE / V SIGN (index + middle up) → Next page
     if (indexUp && middleUp && !ringUp && !pinkyUp) {
+      if (lastGestureRef.current === "peace" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
       lastGestureTime.current = now;
+      lastGestureRef.current = "peace";
       onGesture("peace");
       return;
     }
 
     // ── THUMBS UP → Confirm / Add
     if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) {
+      if (lastGestureRef.current === "thumbs_up" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
       lastGestureTime.current = now;
+      lastGestureRef.current = "thumbs_up";
       onGesture("thumbs_up");
       return;
     }
@@ -188,6 +218,8 @@ export function useGesture({ onGesture, enabled = true }) {
           if (!active) return;
           if (results.multiHandLandmarks?.length > 0) {
             detectGesture(results.multiHandLandmarks[0]);
+          } else {
+            lastGestureRef.current = null;
           }
         });
 
