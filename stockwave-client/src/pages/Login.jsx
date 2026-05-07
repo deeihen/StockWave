@@ -166,12 +166,12 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
     const loadJsQrFromCdn = () =>
       new Promise((resolve, reject) => {
         if (window.jsQR) return resolve(window.jsQR);
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
-        s.async = true;
-        s.onload = () => resolve(window.jsQR);
-        s.onerror = () => reject(new Error("Failed to load jsQR from CDN"));
-        document.head.appendChild(s);
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+        script.async = true;
+        script.onload = () => resolve(window.jsQR);
+        script.onerror = () => reject(new Error("Failed to load jsQR from CDN"));
+        document.head.appendChild(script);
       });
 
     const start = async () => {
@@ -228,11 +228,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
           }
         }
 
-        // Fallback to jsQR (imported or loaded from CDN)
-        let jsqr = null;
-        if (window.jsQR) {
-          jsqr = window.jsQR;
-        }
+        let jsqr = window.jsQR;
         if (!jsqr) {
           try {
             jsqr = await loadJsQrFromCdn();
