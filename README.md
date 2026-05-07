@@ -5,8 +5,8 @@ Touchless Inventory Management System with Gesture and Voice Controls.
 
 ## Tech Stack
 - **Frontend:** React (Vite)
-- **Backend:** ASP.NET Core Web API (.NET 8)
-- **Database:** SQLite (local)
+- **Backend:** ASP.NET Core Web API (.NET 10)
+- **Database:** PostgreSQL (local)
 
 ---
 
@@ -42,6 +42,15 @@ dotnet run
 ```
 Backend runs at: `http://localhost:5258`
 Swagger docs at: `http://localhost:5258/swagger`
+
+Database connection uses PostgreSQL at `localhost:5432` with the connection string in `StockWave.Server/appsettings.json`.
+
+If Docker is installed, you can start Postgres with:
+```bash
+docker run --name stockwave-db -e POSTGRES_PASSWORD=yourpassword -e POSTGRES_DB=stockwave -p 5432:5432 -d postgres:16
+```
+
+If you do not have Docker, install PostgreSQL directly from [postgresql.org](https://www.postgresql.org/download/), then use the same host, port, database, username, and password in `appsettings.json`.
 
 ### 3. Frontend Setup
 ```bash
@@ -130,3 +139,43 @@ StockWave/
 - `stockwave.db` is not pushed to GitHub — each person gets a fresh database
 - JWT token is stored in `localStorage` after login
 - Vite proxy forwards all `/api` requests to `http://localhost:5258`
+
+
+
+## After online database new collaborators follow this
+Prerequisites
+Install these first if you don't have them:
+
+Node.js LTS
+.NET 10 SDK
+
+
+Step 1 — Pull the Latest Changes
+bashgit pull
+
+## refer to the content sent on the group chat
+Step 2 — Update appsettings.json 
+
+Step 3 — Install EF Core Tool
+bashdotnet tool install --global dotnet-ef
+(Skip if you already have it)
+
+## Important do not miss this shit 
+Step 4 — Backend Setup
+bashcd StockWave.Server
+dotnet restore
+dotnet ef database update
+
+Step 5 — Frontend Setup
+bashcd stockwave-client
+npm install
+
+Step 6 — Running the App
+Open two terminals every time:
+Terminal 1 — Backend:
+bashcd StockWave.Server
+dotnet run
+Terminal 2 — Frontend:
+bashcd stockwave-client
+npm run dev
+Then open the localhost given to you in your browser.

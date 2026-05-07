@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("StockWave.Server")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+727a80d2c1039d7551b5b8a96ab74022bea89910")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+eeadd4bd78ec4f64b4a6c9f09980fab654456205")]
 [assembly: System.Reflection.AssemblyProductAttribute("StockWave.Server")]
 [assembly: System.Reflection.AssemblyTitleAttribute("StockWave.Server")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
