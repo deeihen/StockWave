@@ -277,3 +277,10 @@
   .form-grid { grid-template-columns: 1fr; }
   .form-field.full { grid-column: 1; }
 }
+@media (max-width: 520px) {
+  .set-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .avatar-section { flex-direction: column; align-items: flex-start; }
+  .danger-item { flex-direction: column; align-items: flex-start; }
+  .btn-danger { width: 100%; text-align: center; }
+  .inline-select { width: 100%; }
+}

@@ -121,6 +121,7 @@
   border-radius: 12px;
   padding: 4px;
   width: fit-content;
+  flex-wrap: wrap;
 }
 
 .rep-tab {
@@ -161,6 +162,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
+  overflow-x: auto;
 }
 .rep-chart-card.full { width: 100%; }
 .rep-chart-card.wide {}
@@ -213,6 +215,7 @@
   width: 100%;
   border-collapse: collapse;
   margin-top: 4px;
+  min-width: 680px;
 }
 .rep-table th {
   text-align: left;
@@ -341,4 +344,13 @@
   .stock-summary-grid { grid-template-columns: 1fr 1fr; }
   .value-cards-row { grid-template-columns: 1fr; }
   .rep-header-actions { flex-wrap: wrap; }
+}
+@media (max-width: 520px) {
+  .rep-header { flex-direction: column; align-items: flex-start; }
+  .rep-header-actions { width: 100%; }
+  .btn-export { width: 100%; justify-content: center; }
+  .rep-summary { grid-template-columns: 1fr; }
+  .stock-summary-grid { grid-template-columns: 1fr; }
+  .rep-tabs { width: 100%; }
+  .rep-tab { flex: 1 1 120px; text-align: center; }
 }

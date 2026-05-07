@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using StockWave.Server.Data;
 using StockWave.Server.Models;
 
 namespace StockWave.Server.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/users")]
     public class UsersController : ControllerBase
     {
@@ -16,28 +19,32 @@ namespace StockWave.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var users = await _db.Users
+            var userId = GetUserId();
+            var user = await _db.Users
+                .Where(u => u.Id == userId)
                 .Select(u => new {
                     u.Id, u.FullName, u.Username,
-                    u.Email, u.Role, u.Status,
+                    u.Email, u.Status,
                     u.CreatedAt, u.LastLogin
                 })
-                .ToListAsync();
-            return Ok(users);
+                .FirstOrDefaultAsync();
+
+            if (user == null) return NotFound(new { message = "User not found." });
+            return Ok(new[] { user });
         }
 
         // PUT /api/users/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
         {
+            var userId = GetUserId();
+            if (id != userId) return Forbid();
             var user = await _db.Users.FindAsync(id);
             if (user == null) return NotFound(new { message = "User not found." });
 
             user.FullName = dto.FullName;
             user.Username = dto.Username;
             user.Email = dto.Email;
-            user.Role = dto.Role;
-            user.Status = dto.Status;
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "User updated." });
@@ -47,6 +54,8 @@ namespace StockWave.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            var userId = GetUserId();
+            if (id != userId) return Forbid();
             var user = await _db.Users.FindAsync(id);
             if (user == null) return NotFound(new { message = "User not found." });
 
@@ -54,7 +63,13 @@ namespace StockWave.Server.Controllers
             await _db.SaveChangesAsync();
             return Ok(new { message = "User deleted." });
         }
+
+        private int GetUserId()
+        {
+            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.Parse(id ?? "0");
+        }
     }
 
-    public record UpdateUserDto(string FullName, string Username, string Email, string Role, string Status);
+    public record UpdateUserDto(string FullName, string Username, string Email);
 }

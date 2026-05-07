@@ -47,8 +47,7 @@ export default function Register({ onGoLogin }) {
       fullName: form.fullName,
       username: form.username,
       email: form.email,
-      password: form.password,
-      role: form.role
+      password: form.password
     });
     setSuccess(true);
   } catch (err) {

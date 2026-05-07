@@ -121,6 +121,63 @@ function DeleteModal({ product, onClose, onConfirm }) {
   );
 }
 
+// ── Add Stock ─────────────────────────────────────
+function AddStockModal({ product, onClose, onSave }) {
+  const [qty, setQty] = useState(1);
+  const [error, setError] = useState("");
+
+  const handleSubmit = () => {
+    const amount = parseInt(qty, 10);
+    if (isNaN(amount) || amount <= 0) {
+      setError("Enter a valid quantity.");
+      return;
+    }
+    onSave(amount);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card small" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Add Stock</h3>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+        {error && <div className="modal-error">{error}</div>}
+        <div className="modal-body">
+          <div className="mfield-group">
+            <label className="mfield-label">Product</label>
+            <div className="mfield-input" style={{ display: "flex", alignItems: "center" }}>
+              {product.name}
+            </div>
+          </div>
+          <div className="mfield-row">
+            <div className="mfield-group">
+              <label className="mfield-label">Current Stock</label>
+              <div className="mfield-input" style={{ display: "flex", alignItems: "center" }}>
+                {product.stock} {product.unit}
+              </div>
+            </div>
+            <div className="mfield-group">
+              <label className="mfield-label">Add Quantity</label>
+              <input
+                className="mfield-input"
+                type="number"
+                min="1"
+                value={qty}
+                onChange={e => setQty(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="btn-save" onClick={handleSubmit}>Add Stock</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────
 export default function Inventory() {
   const [products, setProducts] = useState([]);
@@ -203,6 +260,23 @@ export default function Inventory() {
       await fetchProducts();
       setModal(null);
     } catch { alert("Failed to delete product."); }
+  };
+
+  const handleAddStock = async (qty) => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const product = modal.product;
+      await updateProduct(product.id, {
+        name: product.name,
+        category: product.category,
+        stock: product.stock + qty,
+        price: product.price,
+        unit: product.unit,
+        performedBy: user.username || "Admin",
+      });
+      await fetchProducts();
+      setModal(null);
+    } catch { alert("Failed to add stock."); }
   };
 
   const handleBulkDelete = async () => {
@@ -301,6 +375,45 @@ export default function Inventory() {
             )}
           </div>
 
+          <div className="inv-card-list">
+            {paginated.length === 0 ? (
+              <div className="inv-card empty">
+                <span className="empty-icon">📦</span>
+                <p>No products found. Click "Add Product" to get started.</p>
+              </div>
+            ) : paginated.map(p => (
+              <div key={p.id} className={`inv-card ${selected.includes(p.id) ? "selected" : ""}`}>
+                <div className="inv-card-top">
+                  <div>
+                    <p className="inv-card-name">{p.name}</p>
+                    <span className="cat-tag">{p.category}</span>
+                  </div>
+                  <input type="checkbox"
+                    checked={selected.includes(p.id)}
+                    onChange={() => toggleSelect(p.id)} />
+                </div>
+                <div className="inv-card-meta">
+                  <span className={`inv-card-stock ${p.stock === 0 ? "zero" : p.stock <= 10 ? "low" : ""}`}>
+                    {p.stock}
+                  </span>
+                  <span className="inv-card-unit">{p.unit}</span>
+                  <span className="inv-card-price">₱{p.price.toLocaleString()}</span>
+                </div>
+                <div className="inv-card-status">
+                  <StatusBadge status={p.status} />
+                </div>
+                <div className="inv-card-actions">
+                  <button className="act-btn add" title="Add stock"
+                    onClick={() => setModal({ type: "add-stock", product: p })}>➕</button>
+                  <button className="act-btn edit" title="Edit"
+                    onClick={() => setModal({ type: "edit", product: p })}>✏️</button>
+                  <button className="act-btn del" title="Delete"
+                    onClick={() => setModal({ type: "delete", product: p })}>🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="inv-table-wrap">
             <table className="inv-table">
               <thead>
@@ -346,6 +459,8 @@ export default function Inventory() {
                     <td><StatusBadge status={p.status} /></td>
                     <td>
                       <div className="action-btns">
+                        <button className="act-btn add" title="Add stock"
+                          onClick={() => setModal({ type: "add-stock", product: p })}>➕</button>
                         <button className="act-btn edit" title="Edit"
                           onClick={() => setModal({ type: "edit", product: p })}>✏️</button>
                         <button className="act-btn del" title="Delete"
@@ -383,6 +498,9 @@ export default function Inventory() {
       )}
       {modal?.type === "delete" && (
         <DeleteModal product={modal.product} onClose={() => setModal(null)} onConfirm={handleDelete} />
+      )}
+      {modal?.type === "add-stock" && (
+        <AddStockModal product={modal.product} onClose={() => setModal(null)} onSave={handleAddStock} />
       )}
     </div>
   );

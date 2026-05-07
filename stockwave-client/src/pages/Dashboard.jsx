@@ -138,7 +138,7 @@ export default function Dashboard({ onLogout }) {
             {sidebarOpen && (
               <div className="user-details">
                 <p className="user-name">{user.fullName || "Admin"}</p>
-                <p className="user-role">{user.role || "Administrator"}</p>
+                <p className="user-role">Account</p>
               </div>
             )}
           </div>
@@ -161,6 +161,9 @@ export default function Dashboard({ onLogout }) {
           <div className="header-right">
             <GestureControl onGesture={handleGestureCommand} />
             <VoiceControl onCommand={handleVoiceCommand} />
+            <button className="notif-btn">
+              🔔<span className="notif-badge">4</span>
+            </button>
             <div className="search-wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <circle cx="11" cy="11" r="8" stroke="#aaa" strokeWidth="1.5"/>
@@ -168,15 +171,25 @@ export default function Dashboard({ onLogout }) {
               </svg>
               <input className="search-input" placeholder="Search products..." />
             </div>
-            <button className="notif-btn">
-              🔔<span className="notif-badge">4</span>
-            </button>
           </div>
         </header>
 
         <div className="dash-page-content">
           {renderPage()}
         </div>
+
+        <nav className="mobile-nav" aria-label="Primary">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              className={`mobile-nav-item ${activePage === item.id ? "active" : ""}`}
+              onClick={() => setActivePage(item.id)}
+            >
+              <span className="mobile-nav-icon">{item.icon}</span>
+              <span className="mobile-nav-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
       </main>
     </div>
   );

@@ -110,3 +110,15 @@
 .gesture-guide-emoji { font-size: 20px; width: 28px; text-align: center; }
 .gesture-guide-name  { font-size: 13px; font-weight: 500; color: #111827; }
 .gesture-guide-action { font-size: 11px; color: #9ca3af; }
+
+@media (max-width: 900px) {
+  .gesture-panel {
+    width: min(92vw, 420px);
+    flex-direction: column;
+  }
+  .gesture-video-wrap { width: 100%; height: 200px; }
+}
+@media (max-width: 600px) {
+  .gesture-btn { padding: 0 12px; width: 100%; justify-content: center; }
+  .gesture-guide { padding: 12px 14px; }
+}

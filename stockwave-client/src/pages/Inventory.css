@@ -143,12 +143,63 @@
   border-radius: 14px;
   overflow: hidden;
   animation: fadeUp 0.35s ease 0.05s both;
+  overflow-x: auto;
 }
 
 .inv-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 720px;
 }
+
+/* ── MOBILE CARDS ─────────────────────────────── */
+.inv-card-list {
+  display: none;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.inv-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.inv-card.selected { background: #f0faf5; border-color: #b6dfc8; }
+.inv-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.inv-card-name {
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+.inv-card-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-mid);
+}
+.inv-card-stock {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.inv-card-stock.low { color: #d97706; }
+.inv-card-stock.zero { color: #ef4444; }
+.inv-card-unit { color: var(--text-light); }
+.inv-card-price { font-weight: 600; color: var(--text-dark); }
+.inv-card-status { display: flex; }
+.inv-card-actions { display: flex; gap: 8px; }
+.inv-card.empty { text-align: center; align-items: center; }
+.inv-card.empty p { font-size: 13px; color: var(--text-light); }
 
 .inv-table thead tr {
   background: var(--bg);
@@ -223,6 +274,7 @@
   display: flex; align-items: center; justify-content: center;
   transition: background 0.15s, border-color 0.15s;
 }
+.act-btn.add:hover { background: #e8f5ee; border-color: #b6dfc8; }
 .act-btn.edit:hover { background: #eff6ff; border-color: #bfdbfe; }
 .act-btn.del:hover { background: #fef2f2; border-color: #fecaca; }
 
@@ -389,4 +441,22 @@
   .inv-table { font-size: 12px; }
   .search-box { max-width: 100%; }
   .mfield-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .inv-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .inv-stats { width: 100%; justify-content: space-between; gap: 16px; }
+  .inv-filters { flex-direction: column; align-items: stretch; }
+  .filter-group { width: 100%; flex-wrap: wrap; }
+  .filter-sel { flex: 1 1 140px; }
+  .btn-bulk-delete { width: 100%; display: flex; justify-content: center; }
+}
+@media (max-width: 520px) {
+  .btn-add { width: 100%; justify-content: center; }
+  .inv-stats { padding: 14px 16px; }
+  .pagination { flex-direction: column; gap: 10px; align-items: flex-start; }
+  .page-btns { flex-wrap: wrap; }
+}
+@media (max-width: 720px) {
+  .inv-table-wrap { display: none; }
+  .inv-card-list { display: grid; }
 }

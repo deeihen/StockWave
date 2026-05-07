@@ -114,3 +114,14 @@
   content: "🎤 ";
   font-size: 11px;
 }
+
+@media (max-width: 900px) {
+  .voice-wrap { flex-wrap: wrap; }
+  .voice-btn { padding: 0 12px; }
+  .voice-status { max-width: 160px; }
+}
+@media (max-width: 600px) {
+  .voice-btn { width: 100%; justify-content: center; }
+  .voice-status { display: none; }
+  .voice-commands-hint { width: min(92vw, 220px); }
+}
