@@ -3,15 +3,15 @@ import { useGesture } from "../hooks/useGesture";
 import "./GestureControl.css";
 
 const GESTURE_LABELS = {
-  open_palm: { emoji: "✋", label: "Open Palm", action: "Navigate" },
-  fist:      { emoji: "✊", label: "Fist",      action: "Cancel" },
-  point_up:  { emoji: "☝️", label: "Point Up",  action: "Previous" },
-  peace:     { emoji: "✌️", label: "Peace",     action: "Next Page" },
-  thumbs_up: { emoji: "👍", label: "Thumbs Up", action: "Confirm" },
+  open_palm: { emoji: "✋", label: "Open Palm",  action: "→ Dashboard" },
+  peace:     { emoji: "✌️", label: "Peace Sign", action: "→ Inventory" },
+  point_up:  { emoji: "☝️", label: "Point Up",   action: "→ Reports"   },
+  thumbs_up: { emoji: "👍", label: "Thumbs Up",  action: "→ Users"     },
+  fist:      { emoji: "✊", label: "Fist",        action: "→ Settings"  },
 };
 
 export default function GestureControl({ onGesture }) {
-  const [active, setActive] = useState(false);
+  const [active, setActive]       = useState(false);
   const [lastGesture, setLastGesture] = useState(null);
 
   const handleGesture = useCallback((gesture) => {
@@ -25,21 +25,30 @@ export default function GestureControl({ onGesture }) {
     enabled: active,
   });
 
+  const toggle = () => {
+    setLastGesture(null);
+    setActive(v => !v);
+  };
+
   return (
     <div className="gesture-wrap">
+      {/* ── Trigger button ── */}
       <button
         className={`gesture-btn ${active ? "active" : ""}`}
-        onClick={() => setActive(v => !v)}
+        onClick={toggle}
         title={active ? "Stop gesture control" : "Start gesture control"}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M18 11V6a2 2 0 00-4 0v5M14 10V4a2 2 0 00-4 0v6M10 10.5V6a2 2 0 00-4 0v8l-1.5-1.5a1.5 1.5 0 00-2 2.2l3.6 3.8A6 6 0 0010 22h4a6 6 0 006-6v-5a2 2 0 00-4 0v0"
-            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path
+            d="M18 11V6a2 2 0 00-4 0v5M14 10V4a2 2 0 00-4 0v6M10 10.5V6a2 2 0 00-4 0v8l-1.5-1.5a1.5 1.5 0 00-2 2.2l3.6 3.8A6 6 0 0010 22h4a6 6 0 006-6v-5a2 2 0 00-4 0v0"
+            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+          />
         </svg>
         {active ? "Gesture On" : "Gesture"}
       </button>
 
-      {active && (
+      {/* ── Panel ── */}
+      {(active || lastGesture) && (
         <div className="gesture-panel">
           {cameraError && (
             <div className="gesture-error">
@@ -57,13 +66,26 @@ export default function GestureControl({ onGesture }) {
             />
             {lastGesture && (
               <div className="gesture-detected">
-                <span className="gesture-emoji">{GESTURE_LABELS[lastGesture]?.emoji}</span>
-                <span className="gesture-detected-label">{GESTURE_LABELS[lastGesture]?.label}</span>
+                <span>{GESTURE_LABELS[lastGesture]?.emoji}</span>
+                <span>{GESTURE_LABELS[lastGesture]?.label}</span>
               </div>
             )}
           </div>
 
-          {/* Commands guide */}
+          {/* Error */}
+          {cameraError && (
+            <div className="gesture-error">{cameraError}</div>
+          )}
+
+          {/* Start / Stop + status */}
+          <div className="gesture-actions">
+            <button className="gesture-toggle-btn" onClick={toggle}>
+              {active ? "Stop gesture" : "Start gesture"}
+            </button>
+            {active && <span className="gesture-status">Detecting...</span>}
+          </div>
+
+          {/* Guide */}
           <div className="gesture-guide">
             <p className="gesture-guide-title">Gestures</p>
             {Object.entries(GESTURE_LABELS).map(([key, val]) => (

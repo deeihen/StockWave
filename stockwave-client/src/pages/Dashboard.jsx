@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Notifications from "../components/Notifications";
 import VoiceControl from "../components/VoiceControl";
+import GestureControl from "../components/GestureControl";
 import "./Dashboard.css";
 import Inventory from "./Inventory";
 import Reports from "./Reports";
@@ -68,10 +69,22 @@ export default function Dashboard({ onLogout }) {
   const { title, sub } = pageTitles[activePage] || pageTitles.dashboard;
 
   const handleVoiceCommand = (command, value) => {
-  if (command === "navigate") setActivePage(value);
-  if (command === "logout") onLogout();
-  if (command === "add_product") setActivePage("inventory");
-};
+    if (command === "navigate") setActivePage(value);
+    if (command === "logout") onLogout();
+    if (command === "add_product") setActivePage("inventory");
+  };
+
+  const handleGestureCommand = (gesture) => {
+    const gestureMap = {
+      open_palm: "dashboard",
+      peace: "inventory",
+      point_up: "reports",
+      thumbs_up: "users",
+      fist: "settings",
+    };
+    const page = gestureMap[gesture];
+    if (page) setActivePage(page);
+  };
 
 
   const renderPage = () => {
@@ -90,10 +103,10 @@ export default function Dashboard({ onLogout }) {
           <div className="sidebar-logo">
             <div className="s-logo-icon">
               <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-                <rect width="12" height="12" rx="2" fill="#1a6b3c"/>
-                <rect x="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5"/>
-                <rect y="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5"/>
-                <rect x="16" y="16" width="12" height="12" rx="2" fill="#1a6b3c"/>
+                <rect width="12" height="12" rx="2" fill="#1a6b3c" />
+                <rect x="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5" />
+                <rect y="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5" />
+                <rect x="16" y="16" width="12" height="12" rx="2" fill="#1a6b3c" />
               </svg>
             </div>
             {sidebarOpen && <span className="s-logo-text">StockWave</span>}
@@ -136,7 +149,7 @@ export default function Dashboard({ onLogout }) {
           <button className="logout-btn" onClick={onLogout} title="Logout">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         </div>
@@ -151,6 +164,7 @@ export default function Dashboard({ onLogout }) {
           </div>
           <div className="header-right">
             <VoiceControl onCommand={handleVoiceCommand} />
+            <GestureControl onGesture={handleGestureCommand} />
             <button className="notif-btn">
               <Notifications />
             </button>
@@ -219,16 +233,16 @@ function DashboardHome() {
       <div className="stats-grid">
         <StatCard icon="📦" label="Total Products"
           value={summary?.totalProducts ?? "—"}
-          sub="In database" color="#1a6b3c" delay="0ms"/>
+          sub="In database" color="#1a6b3c" delay="0ms" />
         <StatCard icon="⚠️" label="Low Stock"
           value={summary?.lowStock ?? "—"}
-          sub="Needs restocking" color="#d97706" delay="80ms"/>
+          sub="Needs restocking" color="#d97706" delay="80ms" />
         <StatCard icon="📥" label="Items Added"
           value={summary?.itemsAddedThisMonth ?? "—"}
-          sub="This month" color="#2563eb" delay="160ms"/>
+          sub="This month" color="#2563eb" delay="160ms" />
         <StatCard icon="📤" label="Items Removed"
           value={summary?.itemsRemovedThisMonth ?? "—"}
-          sub="This month" color="#7c3aed" delay="240ms"/>
+          sub="This month" color="#7c3aed" delay="240ms" />
       </div>
 
       {/* ── BOTTOM ROW ── */}
@@ -293,7 +307,7 @@ function DashboardHome() {
                       style={{
                         width: `${Math.min(item.stock * 10, 100)}%`,
                         background: item.stock === 0 ? "#ef4444" : "#d97706"
-                      }}/>
+                      }} />
                   </div>
                   <p className="low-stock-hint">{item.status}</p>
                 </div>
