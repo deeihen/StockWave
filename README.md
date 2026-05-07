@@ -139,3 +139,43 @@ StockWave/
 - `stockwave.db` is not pushed to GitHub — each person gets a fresh database
 - JWT token is stored in `localStorage` after login
 - Vite proxy forwards all `/api` requests to `http://localhost:5258`
+
+
+
+## After online database new collaborators follow this
+Prerequisites
+Install these first if you don't have them:
+
+Node.js LTS
+.NET 10 SDK
+
+
+Step 1 — Pull the Latest Changes
+bashgit pull
+
+## refer to the content sent on the group chat
+Step 2 — Update appsettings.json 
+
+Step 3 — Install EF Core Tool
+bashdotnet tool install --global dotnet-ef
+(Skip if you already have it)
+
+## Important do not miss this shit 
+Step 4 — Backend Setup
+bashcd StockWave.Server
+dotnet restore
+dotnet ef database update
+
+Step 5 — Frontend Setup
+bashcd stockwave-client
+npm install
+
+Step 6 — Running the App
+Open two terminals every time:
+Terminal 1 — Backend:
+bashcd StockWave.Server
+dotnet run
+Terminal 2 — Frontend:
+bashcd stockwave-client
+npm run dev
+Then open the localhost given to you in your browser.
