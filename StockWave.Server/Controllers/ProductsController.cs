@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using StockWave.Server.Data;
 using StockWave.Server.Models;
 
 namespace StockWave.Server.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/products")]
     public class ProductsController : ControllerBase
     {
@@ -16,7 +19,11 @@ namespace StockWave.Server.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var products = await _db.Products.OrderByDescending(p => p.CreatedAt).ToListAsync();
+            var userId = GetUserId();
+            var products = await _db.Products
+                .Where(p => p.UserId == userId)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
             return Ok(products);
         }
 
@@ -24,7 +31,9 @@ namespace StockWave.Server.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var product = await _db.Products.FindAsync(id);
+            var userId = GetUserId();
+            var product = await _db.Products
+                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (product == null) return NotFound(new { message = "Product not found." });
             return Ok(product);
         }
@@ -33,8 +42,10 @@ namespace StockWave.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductDto dto)
         {
+            var userId = GetUserId();
             var product = new Product
             {
+                UserId = userId,
                 Name = dto.Name,
                 Category = dto.Category,
                 Stock = dto.Stock,
@@ -50,6 +61,7 @@ namespace StockWave.Server.Controllers
 
             _db.StockTransactions.Add(new StockTransaction
             {
+                UserId = userId,
                 ProductId = product.Id,
                 Action = "Added",
                 Quantity = dto.Stock,
@@ -65,7 +77,9 @@ namespace StockWave.Server.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] ProductDto dto)
         {
-            var product = await _db.Products.FindAsync(id);
+            var userId = GetUserId();
+            var product = await _db.Products
+                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (product == null) return NotFound(new { message = "Product not found." });
 
             var oldStock = product.Stock;
@@ -83,6 +97,7 @@ namespace StockWave.Server.Controllers
             {
                 _db.StockTransactions.Add(new StockTransaction
                 {
+                    UserId = userId,
                     ProductId = product.Id,
                     Action = diff > 0 ? "Added" : "Removed",
                     Quantity = Math.Abs(diff),
@@ -99,7 +114,9 @@ namespace StockWave.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var product = await _db.Products.FindAsync(id);
+            var userId = GetUserId();
+            var product = await _db.Products
+                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (product == null) return NotFound(new { message = "Product not found." });
 
             _db.Products.Remove(product);
@@ -109,6 +126,12 @@ namespace StockWave.Server.Controllers
 
         private static string GetStatus(int stock) =>
             stock == 0 ? "Out of Stock" : stock <= 10 ? "Low Stock" : "In Stock";
+
+        private int GetUserId()
+        {
+            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.Parse(id ?? "0");
+        }
     }
 
     public record ProductDto(

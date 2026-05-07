@@ -208,6 +208,7 @@
   border: 1px solid var(--border);
   border-radius: 14px; overflow: hidden;
   animation: fadeUp 0.3s ease both;
+  overflow-x: auto;
 }
 .usr-table { width: 100%; border-collapse: collapse; }
 .usr-table thead tr { background: var(--bg); border-bottom: 1px solid var(--border); }
@@ -392,4 +393,13 @@
 }
 @media (max-width: 480px) {
   .usr-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .usr-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .usr-stats { width: 100%; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
+  .usr-filters { flex-direction: column; align-items: stretch; }
+  .filter-group { width: 100%; flex-wrap: wrap; }
+  .filter-sel { flex: 1 1 140px; }
+  .btn-add-user { width: 100%; justify-content: center; }
+  .usr-table { min-width: 720px; }
 }

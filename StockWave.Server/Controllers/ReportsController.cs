@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using StockWave.Server.Data;
 
 namespace StockWave.Server.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/reports")]
     public class ReportsController : ControllerBase
     {
@@ -15,21 +18,23 @@ namespace StockWave.Server.Controllers
         [HttpGet("summary")]
         public async Task<IActionResult> Summary()
         {
-            var totalProducts = await _db.Products.CountAsync();
-            var lowStock = await _db.Products.CountAsync(p => p.Status == "Low Stock");
-            var outOfStock = await _db.Products.CountAsync(p => p.Status == "Out of Stock");
-            var inStock = await _db.Products.CountAsync(p => p.Status == "In Stock");
+            var userId = GetUserId();
+            var products = _db.Products.Where(p => p.UserId == userId);
+            var totalProducts = await products.CountAsync();
+            var lowStock = await products.CountAsync(p => p.Status == "Low Stock");
+            var outOfStock = await products.CountAsync(p => p.Status == "Out of Stock");
+            var inStock = await products.CountAsync(p => p.Status == "In Stock");
 
             var thisMonth = DateTime.UtcNow.AddDays(-30);
             var added = await _db.StockTransactions
-                .Where(t => t.Action == "Added" && t.Timestamp >= thisMonth)
+                .Where(t => t.UserId == userId && t.Action == "Added" && t.Timestamp >= thisMonth)
                 .SumAsync(t => (int?)t.Quantity) ?? 0;
             var removed = await _db.StockTransactions
-                .Where(t => t.Action == "Removed" && t.Timestamp >= thisMonth)
+                .Where(t => t.UserId == userId && t.Action == "Removed" && t.Timestamp >= thisMonth)
                 .SumAsync(t => (int?)t.Quantity) ?? 0;
 
             // Total stock value
-            var totalValue = await _db.Products
+            var totalValue = await products
                 .SumAsync(p => (decimal?)((decimal)p.Stock * p.Price)) ?? 0;
 
             return Ok(new {
@@ -44,7 +49,9 @@ namespace StockWave.Server.Controllers
         [HttpGet("low-stock")]
         public async Task<IActionResult> LowStock()
         {
+            var userId = GetUserId();
             var items = await _db.Products
+                .Where(p => p.UserId == userId)
                 .Where(p => p.Status == "Low Stock" || p.Status == "Out of Stock")
                 .OrderBy(p => p.Stock)
                 .ToListAsync();
@@ -55,7 +62,9 @@ namespace StockWave.Server.Controllers
         [HttpGet("recent-activity")]
         public async Task<IActionResult> RecentActivity()
         {
+            var userId = GetUserId();
             var activity = await _db.StockTransactions
+                .Where(t => t.UserId == userId)
                 .Include(t => t.Product)
                 .OrderByDescending(t => t.Timestamp)
                 .Take(20)
@@ -75,7 +84,9 @@ namespace StockWave.Server.Controllers
         [HttpGet("category-breakdown")]
         public async Task<IActionResult> CategoryBreakdown()
         {
+            var userId = GetUserId();
             var breakdown = await _db.Products
+                .Where(p => p.UserId == userId)
                 .GroupBy(p => p.Category)
                 .Select(g => new {
                     name = g.Key,
@@ -91,10 +102,11 @@ namespace StockWave.Server.Controllers
         [HttpGet("stock-movement")]
         public async Task<IActionResult> StockMovement()
         {
+            var userId = GetUserId();
             var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
 
             var transactions = await _db.StockTransactions
-                .Where(t => t.Timestamp >= sixMonthsAgo)
+                .Where(t => t.UserId == userId && t.Timestamp >= sixMonthsAgo)
                 .ToListAsync();
 
             // Group by month
@@ -116,9 +128,10 @@ namespace StockWave.Server.Controllers
         [HttpGet("top-products")]
         public async Task<IActionResult> TopProducts()
         {
+            var userId = GetUserId();
             var top = await _db.StockTransactions
                 .Include(t => t.Product)
-                .Where(t => t.Action == "Added" || t.Action == "Removed")
+                .Where(t => t.UserId == userId && (t.Action == "Added" || t.Action == "Removed"))
                 .GroupBy(t => new { t.ProductId, t.Product.Name, t.Product.Category, t.Product.Stock })
                 .Select(g => new {
                     name = g.Key.Name,
@@ -131,6 +144,12 @@ namespace StockWave.Server.Controllers
                 .ToListAsync();
 
             return Ok(top);
+        }
+
+        private int GetUserId()
+        {
+            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.Parse(id ?? "0");
         }
     }
 }

@@ -38,7 +38,6 @@ namespace StockWave.Server.Controllers
                 Username = dto.Username,
                 Email = dto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                Role = dto.Role ?? "Staff",
                 Status = "Active",
                 CreatedAt = DateTime.UtcNow
             };
@@ -74,8 +73,7 @@ namespace StockWave.Server.Controllers
                     user.Id,
                     user.FullName,
                     user.Username,
-                    user.Email,
-                    user.Role
+                    user.Email
                 }
             });
         }
@@ -88,8 +86,7 @@ namespace StockWave.Server.Controllers
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role)
+                new Claim(ClaimTypes.Name, user.Username)
             };
 
             var token = new JwtSecurityToken(
@@ -106,6 +103,6 @@ namespace StockWave.Server.Controllers
     }
 
     // DTOs
-    public record RegisterDto(string FullName, string Username, string Email, string Password, string? Role);
+    public record RegisterDto(string FullName, string Username, string Email, string Password);
     public record LoginDto(string Username, string Password);
 }

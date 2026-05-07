@@ -2,26 +2,9 @@ import { useState, useEffect } from "react";
 import { getUsers, updateUser, deleteUser } from "../api/stockwaveApi";
 import "./Users.css";
 
-// ── Mock Data ──────────────────────────────────────
-const initialUsers = [
-  { id: 1, name: "Admin User", username: "admin", email: "admin@stockwave.com", role: "Admin", status: "Active", lastLogin: "Just now", avatar: "A" },
-  { id: 2, name: "Maria Santos", username: "maria.s", email: "maria@stockwave.com", role: "Manager", status: "Active", lastLogin: "2 hrs ago", avatar: "M" },
-  { id: 3, name: "Juan Dela Cruz", username: "juan.dc", email: "juan@stockwave.com", role: "Staff", status: "Active", lastLogin: "Yesterday", avatar: "J" },
-  { id: 4, name: "Ana Reyes", username: "ana.r", email: "ana@stockwave.com", role: "Staff", status: "Inactive", lastLogin: "3 days ago", avatar: "A" },
-  { id: 5, name: "Carlo Mendoza", username: "carlo.m", email: "carlo@stockwave.com", role: "Manager", status: "Active", lastLogin: "1 hr ago", avatar: "C" },
-  { id: 6, name: "Lea Bautista", username: "lea.b", email: "lea@stockwave.com", role: "Staff", status: "Active", lastLogin: "5 hrs ago", avatar: "L" },
-  { id: 7, name: "Rico Tan", username: "rico.t", email: "rico@stockwave.com", role: "Staff", status: "Inactive", lastLogin: "1 week ago", avatar: "R" },
-];
-
-const roleColors = {
-  Admin: { bg: "#e8f5ee", color: "#1a6b3c" },
-  Manager: { bg: "#eff6ff", color: "#2563eb" },
-  Staff: { bg: "#f5f3ff", color: "#7c3aed" },
-};
-
 const avatarColors = ["#1a6b3c", "#2563eb", "#7c3aed", "#d97706", "#ef4444", "#0891b2"];
 
-const emptyForm = { name: "", username: "", email: "", role: "Staff", status: "Active" };
+const emptyForm = { name: "", username: "", email: "" };
 
 // ── User Modal ─────────────────────────────────────
 function UserModal({ mode, user, onClose, onSave }) {
@@ -61,7 +44,6 @@ function UserModal({ mode, user, onClose, onSave }) {
             </div>
             <div>
               <p className="avatar-preview-name">{form.name || "New User"}</p>
-              <p className="avatar-preview-role">{form.role}</p>
             </div>
           </div>
 
@@ -77,14 +59,6 @@ function UserModal({ mode, user, onClose, onSave }) {
               <input className="mfield-input" name="username" placeholder="e.g. maria.s"
                 value={form.username} onChange={handleChange} />
             </div>
-            <div className="mfield-group">
-              <label className="mfield-label">Role</label>
-              <select className="mfield-input" name="role" value={form.role} onChange={handleChange}>
-                <option>Admin</option>
-                <option>Manager</option>
-                <option>Staff</option>
-              </select>
-            </div>
           </div>
 
           <div className="mfield-group">
@@ -93,28 +67,6 @@ function UserModal({ mode, user, onClose, onSave }) {
               value={form.email} onChange={handleChange} />
           </div>
 
-          <div className="mfield-group">
-            <label className="mfield-label">Status</label>
-            <div className="status-toggle-row">
-              {["Active", "Inactive"].map(s => (
-                <button key={s} type="button"
-                  className={`status-toggle-btn ${form.status === s ? "selected" : ""}`}
-                  onClick={() => setForm(prev => ({ ...prev, status: s }))}>
-                  <span className={`dot ${s.toLowerCase()}`} />
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {mode === "add" && (
-            <div className="mfield-group">
-              <label className="mfield-label">Temporary Password</label>
-              <input className="mfield-input" type="password" placeholder="Will be emailed to user"
-                disabled style={{ opacity: 0.5, cursor: "not-allowed" }} />
-              <p className="field-hint">Auto-generated and sent to user's email</p>
-            </div>
-          )}
         </div>
 
         <div className="modal-footer">
@@ -180,7 +132,6 @@ export default function Users() {
     }
   };
   const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [modal, setModal] = useState(null);
   const [activeView, setActiveView] = useState("grid"); // grid | table
@@ -190,16 +141,13 @@ export default function Users() {
     const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.username.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === "All" || u.role === filterRole;
     const matchStatus = filterStatus === "All" || u.status === filterStatus;
-    return matchSearch && matchRole && matchStatus;
+    return matchSearch && matchStatus;
   });
 
   // ── Stats ──────────────────────────────────────
   const totalUsers = users.length;
   const activeCount = users.filter(u => u.status === "Active").length;
-  const adminCount = users.filter(u => u.role === "Admin").length;
-  const managerCount = users.filter(u => u.role === "Manager").length;
 
   // ── CRUD ──────────────────────────────────────
   const handleAdd = async (data) => {
@@ -215,8 +163,6 @@ export default function Users() {
         fullName: data.name,
         username: data.username,
         email: data.email,
-        role: data.role,
-        status: data.status,
       });
       await fetchUsers();
       setModal(null);
@@ -245,12 +191,9 @@ export default function Users() {
       {/* ── PAGE HEADER ── */}
       <div className="usr-header">
         <div>
-          <h1 className="usr-title">Users</h1>
-          <p className="usr-sub">Manage system access and roles</p>
+          <h1 className="usr-title">Account</h1>
+          <p className="usr-sub">Manage your profile details</p>
         </div>
-        <button className="btn-add-user" onClick={() => setModal({ type: "add" })}>
-          ＋ Add User
-        </button>
       </div>
 
       {/* ── STATS ── */}
@@ -258,8 +201,6 @@ export default function Users() {
         {[
           { label: "Total Users", value: totalUsers, color: "var(--text-dark)" },
           { label: "Active", value: activeCount, color: "#1a6b3c" },
-          { label: "Admins", value: adminCount, color: "#2563eb" },
-          { label: "Managers", value: managerCount, color: "#7c3aed" },
         ].map((s, i) => (
           <div key={i} className="usr-stat">
             <span className="usr-stat-num" style={{ color: s.color }}>{s.value}</span>
@@ -280,9 +221,6 @@ export default function Users() {
         </div>
 
         <div className="filter-group">
-          <select className="filter-sel" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
-            {["All", "Admin", "Manager", "Staff"].map(r => <option key={r}>{r}</option>)}
-          </select>
           <select className="filter-sel" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             {["All", "Active", "Inactive"].map(s => <option key={s}>{s}</option>)}
           </select>
@@ -324,9 +262,6 @@ export default function Users() {
               <p className="usr-card-username">@{u.username}</p>
               <p className="usr-card-email">{u.email}</p>
               <div className="usr-card-bottom">
-                <span className="role-badge" style={{ background: roleColors[u.role].bg, color: roleColors[u.role].color }}>
-                  {u.role}
-                </span>
                 <span className={`status-dot-badge ${u.status.toLowerCase()}`}>
                   <span className="sdot" />{u.status}
                 </span>
@@ -346,7 +281,6 @@ export default function Users() {
                 <th>User</th>
                 <th>Username</th>
                 <th>Email</th>
-                <th>Role</th>
                 <th>Status</th>
                 <th>Last Login</th>
                 <th>Actions</th>
@@ -371,11 +305,6 @@ export default function Users() {
                   </td>
                   <td className="td-mid">@{u.username}</td>
                   <td className="td-light">{u.email}</td>
-                  <td>
-                    <span className="role-badge" style={{ background: roleColors[u.role].bg, color: roleColors[u.role].color }}>
-                      {u.role}
-                    </span>
-                  </td>
                   <td>
                     <span className={`status-dot-badge ${u.status.toLowerCase()}`}>
                       <span className="sdot" />{u.status}
