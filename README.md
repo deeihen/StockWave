@@ -6,7 +6,17 @@ Touchless Inventory Management System with Gesture and Voice Controls.
 ## Tech Stack
 - **Frontend:** React (Vite)
 - **Backend:** ASP.NET Core Web API (.NET 10)
-- **Database:** PostgreSQL (local)
+- **Database:** PostgreSQL (Supabase/Local)
+
+---
+
+## Key Features
+- **Touchless Control:** Navigate via Voice Commands and Hand Gestures.
+- **Role-Based Access Control (RBAC):** Secure access levels for Admin (User Management) and Staff (Inventory Management).
+- **Mobile Responsive:** Optimized UI for all devices, from desktop to mobile.
+- **Real-time Analytics:** Visualized data with interactive charts.
+- **UTC Sync:** Global time consistency across all transaction logs.
+- **Automated Restocking:** Generate restock orders for low-stock items.
 
 ---
 
@@ -14,7 +24,7 @@ Touchless Inventory Management System with Gesture and Voice Controls.
 Install these on your PC before anything else:
 
 - [Node.js LTS](https://nodejs.org)
-- [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 - [VS Code](https://code.visualstudio.com)
 
 **VS Code Extensions:**
