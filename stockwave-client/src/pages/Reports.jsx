@@ -11,8 +11,18 @@ import {
   getReportSummary, getLowStock, getRecentActivity,
   getCategoryBreakdown, getStockMovement, getTopProducts
 } from "../api/stockwaveApi";
+import {
+  Download,
+  DollarSign,
+  Package,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  BarChart as BarChartIcon,
+  Layers
+} from "lucide-react";
 
-const PIE_COLORS = ["#1a6b3c", "#2d8653", "#6dbf8e", "#b6dfc8", "#d97706", "#2563eb"];
+const PIE_COLORS = ["#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"];
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -20,7 +30,7 @@ const CustomTooltip = ({ active, payload, label }) => {
       <div className="chart-tooltip">
         <p className="tooltip-label">{label}</p>
         {payload.map((p, i) => (
-          <p key={i} className="tooltip-value" style={{ color: p.color }}>
+          <p key={i} className="tooltip-value" style={{ color: p.color || p.fill }}>
             {p.name}: {typeof p.value === "number" && p.value > 999
               ? "₱" + p.value.toLocaleString() : p.value}
           </p>
@@ -38,7 +48,7 @@ const PieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
   const y = cy + r * Math.sin(-midAngle * RADIAN);
   if (percent < 0.07) return null;
   return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight={700}>
       {`${(percent * 100).toFixed(0)}%`}
     </text>
   );
@@ -70,7 +80,8 @@ export default function Reports({ exportSignal = 0 }) {
         ]);
         setSummary(s.data);
         setLowStockItems(l.data);
-        setCategoryData(c.data);
+        // Sort categories by value for the cards
+        setCategoryData([...c.data].sort((a, b) => (b.totalValue || 0) - (a.totalValue || 0)));
         setStockMovement(m.data);
         setTopProducts(t.data);
       } catch {
@@ -93,14 +104,6 @@ export default function Reports({ exportSignal = 0 }) {
   const totalAdded = stockMovement.reduce((s, m) => s + m.added, 0);
   const totalRemoved = stockMovement.reduce((s, m) => s + m.removed, 0);
   const netChange = totalAdded - totalRemoved;
-
-  // Stock value trend derived from category data (simulated per month from transactions)
-  const stockValueTrend = stockMovement.map(m => ({
-    month: m.month,
-    value: summary?.totalStockValue
-      ? Math.round(summary.totalStockValue * (0.85 + Math.random() * 0.3))
-      : 0
-  }));
 
   useEffect(() => {
     if (exportSignal > lastExportRef.current) {
@@ -155,15 +158,7 @@ export default function Reports({ exportSignal = 0 }) {
             }
             disabled={isRunning("export-pdf")}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Download size={16} />
             Export PDF
           </button>
         </div>
@@ -173,7 +168,7 @@ export default function Reports({ exportSignal = 0 }) {
       <div className="rep-summary">
         <div className="rep-stat-card" style={{ animationDelay: "0ms" }}>
           <div className="rep-stat-top">
-            <span className="rep-stat-icon">💰</span>
+            <span className="rep-stat-icon" style={{ color: "#059669", background: "#ecfdf5" }}><DollarSign size={18} /></span>
             <span className="rep-change up">Live</span>
           </div>
           <h3 className="rep-stat-value">
@@ -184,29 +179,29 @@ export default function Reports({ exportSignal = 0 }) {
 
         <div className="rep-stat-card" style={{ animationDelay: "60ms" }}>
           <div className="rep-stat-top">
-            <span className="rep-stat-icon">📥</span>
+            <span className="rep-stat-icon" style={{ color: "#3b82f6", background: "#eff6ff" }}><TrendingUp size={18} /></span>
             <span className="rep-change up">↑ This month</span>
           </div>
           <h3 className="rep-stat-value">
             {summary?.itemsAddedThisMonth ?? "—"}
           </h3>
-          <p className="rep-stat-label">Items Added (Month)</p>
+          <p className="rep-stat-label">Items Added</p>
         </div>
 
         <div className="rep-stat-card" style={{ animationDelay: "120ms" }}>
           <div className="rep-stat-top">
-            <span className="rep-stat-icon">📤</span>
+            <span className="rep-stat-icon" style={{ color: "#ef4444", background: "#fef2f2" }}><TrendingDown size={18} /></span>
             <span className="rep-change down">↓ This month</span>
           </div>
           <h3 className="rep-stat-value">
             {summary?.itemsRemovedThisMonth ?? "—"}
           </h3>
-          <p className="rep-stat-label">Items Removed (Month)</p>
+          <p className="rep-stat-label">Items Removed</p>
         </div>
 
         <div className="rep-stat-card" style={{ animationDelay: "180ms" }}>
           <div className="rep-stat-top">
-            <span className="rep-stat-icon">📦</span>
+            <span className="rep-stat-icon" style={{ color: "#8b5cf6", background: "#f5f3ff" }}><Package size={18} /></span>
             <span className="rep-change up">Live</span>
           </div>
           <h3 className="rep-stat-value">{summary?.totalProducts ?? "—"}</h3>
@@ -240,52 +235,22 @@ export default function Reports({ exportSignal = 0 }) {
                 </div>
               </div>
               {stockMovement.length === 0 ? (
-                <p
-                  style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}
-                >
-                  No transaction data yet. Add and edit products to see movement
-                  here.
+                <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
+                  No transaction data yet.
                 </p>
               ) : (
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart
                     data={stockMovement}
-                    margin={{ top: 5, right: 5, left: -15, bottom: 0 }}
+                    margin={{ top: 5, right: 5, left: 10, bottom: 0 }}
                   >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#f0f0f0"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 12, fill: "#9ca3af" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12, fill: "#9ca3af" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar
-                      dataKey="added"
-                      name="Added"
-                      fill="#1a6b3c"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={28}
-                    />
-                    <Bar
-                      dataKey="removed"
-                      name="Removed"
-                      fill="#e8f5ee"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={28}
-                      stroke="#1a6b3c"
-                      strokeWidth={1}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc" }} />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                    <Bar dataKey="added" name="Added" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                    <Bar dataKey="removed" name="Removed" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={24} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -300,43 +265,32 @@ export default function Reports({ exportSignal = 0 }) {
                 </div>
               </div>
               {categoryData.length === 0 ? (
-                <p style={{ color: "#9ca3af", fontSize: 13 }}>
-                  No products yet.
-                </p>
+                <p style={{ color: "#9ca3af", fontSize: 13 }}>No data.</p>
               ) : (
                 <>
-                  <ResponsiveContainer width="100%" height={200}>
+                  <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie
                         data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={85}
+                        cx="50%" cy="50%"
+                        outerRadius={70}
+                        innerRadius={45}
                         dataKey="value"
                         labelLine={false}
                         label={PieLabel}
+                        paddingAngle={2}
                       >
                         {categoryData.map((_, i) => (
-                          <Cell
-                            key={i}
-                            fill={PIE_COLORS[i % PIE_COLORS.length]}
-                          />
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="none" />
                         ))}
                       </Pie>
-                      <Tooltip
-                        formatter={(val, name) => [val + " units", name]}
-                      />
+                      <Tooltip formatter={(val, name) => [val + " units", name]} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="pie-legend">
-                    {categoryData.map((c, i) => (
+                    {categoryData.slice(0, 4).map((c, i) => (
                       <div key={i} className="pie-legend-item">
-                        <span
-                          className="pie-dot"
-                          style={{
-                            background: PIE_COLORS[i % PIE_COLORS.length],
-                          }}
-                        />
+                        <span className="pie-dot" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                         <span className="pie-label">{c.name}</span>
                         <span className="pie-val">{c.value}</span>
                       </div>
@@ -352,24 +306,16 @@ export default function Reports({ exportSignal = 0 }) {
             <div className="rep-chart-header">
               <div>
                 <h3 className="rep-chart-title">Top Moving Products</h3>
-                <p className="rep-chart-sub">
-                  Most activity by transaction count
-                </p>
+                <p className="rep-chart-sub">Most activity by transaction count</p>
               </div>
             </div>
             {topProducts.length === 0 ? (
-              <p style={{ color: "#9ca3af", fontSize: 13, padding: "12px 0" }}>
-                No product activity yet.
-              </p>
+              <p style={{ color: "#9ca3af", fontSize: 13 }}>No activity yet.</p>
             ) : (
               <table className="rep-table">
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Total Moved</th>
-                    <th>Current Stock</th>
+                    <th>#</th><th>Product</th><th>Category</th><th>Total Moved</th><th>Stock</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -377,18 +323,12 @@ export default function Reports({ exportSignal = 0 }) {
                     <tr key={i}>
                       <td className="rank-cell">#{i + 1}</td>
                       <td className="prod-name">{p.name}</td>
-                      <td>
-                        <span className="cat-tag">{p.category}</span>
-                      </td>
+                      <td><span className="cat-tag">{p.category}</span></td>
                       <td>
                         <div className="turnover-wrap">
                           <div className="turnover-bar-bg">
-                            <div
-                              className="turnover-bar-fill"
-                              style={{
-                                width: `${Math.min((p.totalMoved / (topProducts[0]?.totalMoved || 1)) * 100, 100)}%`,
-                              }}
-                            />
+                            <div className="turnover-bar-fill"
+                              style={{ width: `${Math.min((p.totalMoved / (topProducts[0]?.totalMoved || 1)) * 100, 100)}%` }} />
                           </div>
                           <span className="turnover-pct">{p.totalMoved}</span>
                         </div>
@@ -410,75 +350,30 @@ export default function Reports({ exportSignal = 0 }) {
             <div className="rep-chart-header">
               <div>
                 <h3 className="rep-chart-title">Stock Movement Detail</h3>
-                <p className="rep-chart-sub">
-                  Items added and removed over time
-                </p>
+                <p className="rep-chart-sub">Items added and removed over time</p>
               </div>
             </div>
             {stockMovement.length === 0 ? (
-              <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
-                No movement data yet. Add and edit products to track changes.
-              </p>
+              <p style={{ color: "#9ca3af", fontSize: 13 }}>No movement data.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={320}>
-                <AreaChart
-                  data={stockMovement}
-                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                >
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={stockMovement} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="addedGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="#1a6b3c"
-                        stopOpacity={0.15}
-                      />
-                      <stop offset="95%" stopColor="#1a6b3c" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#059669" stopOpacity={0.1} />
+                      <stop offset="95%" stopColor="#059669" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient
-                      id="removedGrad"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />
+                    <linearGradient id="removedGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.05} />
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 12, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 13 }} />
-                  <Area
-                    type="monotone"
-                    dataKey="added"
-                    name="Added"
-                    stroke="#1a6b3c"
-                    strokeWidth={2.5}
-                    fill="url(#addedGrad)"
-                    dot={{ r: 4, fill: "#1a6b3c" }}
-                    activeDot={{ r: 6 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="removed"
-                    name="Removed"
-                    stroke="#ef4444"
-                    strokeWidth={2.5}
-                    fill="url(#removedGrad)"
-                    dot={{ r: 4, fill: "#ef4444" }}
-                    activeDot={{ r: 6 }}
-                  />
+                  <Area type="monotone" dataKey="added" name="Added" stroke="#059669" strokeWidth={2} fill="url(#addedGrad)" />
+                  <Area type="monotone" dataKey="removed" name="Removed" stroke="#ef4444" strokeWidth={2} fill="url(#removedGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -486,44 +381,13 @@ export default function Reports({ exportSignal = 0 }) {
 
           <div className="stock-summary-grid">
             {[
-              {
-                label: "Total Added",
-                value: totalAdded,
-                icon: "📥",
-                color: "#1a6b3c",
-                bg: "#e8f5ee",
-              },
-              {
-                label: "Total Removed",
-                value: totalRemoved,
-                icon: "📤",
-                color: "#ef4444",
-                bg: "#fef2f2",
-              },
-              {
-                label: "Net Change",
-                value: netChange >= 0 ? `+${netChange}` : netChange,
-                icon: "📊",
-                color: "#2563eb",
-                bg: "#eff6ff",
-              },
-              {
-                label: "Low Stock Items",
-                value: summary?.lowStock ?? 0,
-                icon: "⚠️",
-                color: "#d97706",
-                bg: "#fef3c7",
-              },
+              { label: "Total Added", value: totalAdded, color: "#059669", bg: "#ecfdf5" },
+              { label: "Total Removed", value: totalRemoved, color: "#ef4444", bg: "#fef2f2" },
+              { label: "Net Change", value: (netChange >= 0 ? "+" : "") + netChange, color: "#3b82f6", bg: "#eff6ff" },
+              { label: "Low Items", value: summary?.lowStock ?? 0, color: "#f59e0b", bg: "#fffbeb" },
             ].map((s, i) => (
-              <div
-                key={i}
-                className="stock-sum-card"
-                style={{ background: s.bg }}
-              >
-                <span className="stock-sum-icon">{s.icon}</span>
-                <h3 className="stock-sum-value" style={{ color: s.color }}>
-                  {s.value}
-                </h3>
+              <div key={i} className="stock-sum-card" style={{ background: s.bg }}>
+                <h3 className="stock-sum-value" style={{ color: s.color }}>{s.value}</h3>
                 <p className="stock-sum-label">{s.label}</p>
               </div>
             ))}
@@ -537,54 +401,25 @@ export default function Reports({ exportSignal = 0 }) {
           <div className="rep-chart-card full">
             <div className="rep-chart-header">
               <div>
-                <h3 className="rep-chart-title">Total Stock Value</h3>
-                <p className="rep-chart-sub">
-                  Estimated value of all inventory (₱)
-                </p>
+                <h3 className="rep-chart-title">Inventory Value Breakdown</h3>
+                <p className="rep-chart-sub">Estimated stock value per category (₱)</p>
               </div>
-              <span className="chart-badge up">
-                ₱{(summary?.totalStockValue ?? 0).toLocaleString()} current
-              </span>
+              <span className="chart-badge">₱{(summary?.totalStockValue ?? 0).toLocaleString()} Total</span>
             </div>
             {categoryData.length === 0 ? (
-              <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
-                Add products to see stock value data.
-              </p>
+              <p style={{ color: "#9ca3af", fontSize: 13 }}>No data available.</p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart
-                  data={categoryData}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#f0f0f0"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 12, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
+                <BarChart data={categoryData} margin={{ top: 10, right: 10, left: 30, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
                   <YAxis
-                    tickFormatter={(v) =>
-                      "₱" + (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v)
-                    }
-                    tick={{ fontSize: 11, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
+                    tickFormatter={(v) => "₱" + (v >= 1000 ? (v / 1000).toFixed(1) + "k" : v)}
+                    tick={{ fontSize: 10, fontWeight: 700 }}
+                    axisLine={false} tickLine={false}
                   />
-                  <Tooltip
-                    formatter={(v) => ["₱" + v.toLocaleString(), "Stock Value"]}
-                  />
-                  <Bar
-                    dataKey="totalValue"
-                    name="Value"
-                    fill="#1a6b3c"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={40}
-                  />
+                  <Tooltip formatter={(v) => ["₱" + v.toLocaleString(), "Stock Value"]} cursor={{ fill: "#f8fafc" }} />
+                  <Bar dataKey="totalValue" name="Value" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -593,17 +428,9 @@ export default function Reports({ exportSignal = 0 }) {
           <div className="value-cards-row">
             {categoryData.slice(0, 3).map((c, i) => (
               <div key={i} className="value-info-card">
-                <h4 className="vic-title">
-                  {i === 0
-                    ? "Highest Value Category"
-                    : i === 1
-                      ? "2nd Highest"
-                      : "3rd Highest"}
-                </h4>
-                <p className="vic-main">{c.name}</p>
-                <p className="vic-sub">
-                  ₱{(c.totalValue ?? 0).toLocaleString()} total value
-                </p>
+                <p className="vic-label">{i === 0 ? "Top Category" : i === 1 ? "Secondary" : "Third"}</p>
+                <h4 className="vic-main">{c.name}</h4>
+                <p className="vic-sub">₱{(c.totalValue ?? 0).toLocaleString()}</p>
               </div>
             ))}
           </div>
@@ -617,46 +444,28 @@ export default function Reports({ exportSignal = 0 }) {
             <div className="rep-chart-header">
               <div>
                 <h3 className="rep-chart-title">Low Stock Report</h3>
-                <p className="rep-chart-sub">
-                  Items that need restocking attention
-                </p>
+                <p className="rep-chart-sub">Items below minimum threshold</p>
               </div>
               <span className="alert-badge">{lowStockItems.length} items</span>
             </div>
             {lowStockItems.length === 0 ? (
-              <p style={{ color: "#9ca3af", fontSize: 13, padding: "24px 0" }}>
-                🎉 All items are well stocked!
-              </p>
+              <p style={{ color: "#9ca3af", fontSize: 13 }}>All items well stocked.</p>
             ) : (
               <table className="rep-table">
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Current Stock</th>
-                    <th>Unit Price</th>
-                    <th>Status</th>
+                    <th>Product</th><th>Category</th><th>Current Stock</th><th>Price</th><th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lowStockItems.map((item, i) => (
                     <tr key={i}>
                       <td className="prod-name">{item.name}</td>
+                      <td><span className="cat-tag">{item.category}</span></td>
+                      <td className={`stock-num ${item.stock === 0 ? "zero" : "low"}`}>{item.stock} {item.unit}</td>
+                      <td className="mid-text">₱{item.price?.toLocaleString()}</td>
                       <td>
-                        <span className="cat-tag">{item.category}</span>
-                      </td>
-                      <td
-                        className={`stock-num ${item.stock === 0 ? "zero" : "low"}`}
-                      >
-                        {item.stock} {item.unit}
-                      </td>
-                      <td className="mid-text">
-                        ₱{item.price?.toLocaleString()}
-                      </td>
-                      <td>
-                        <span
-                          className={`alert-status ${item.status === "Out of Stock" ? "out" : item.stock <= 3 ? "critical" : "low"}`}
-                        >
+                        <span className={`alert-status ${item.status === "Out of Stock" ? "out" : "low"}`}>
                           {item.status}
                         </span>
                       </td>
@@ -670,7 +479,7 @@ export default function Reports({ exportSignal = 0 }) {
               onClick={() => run("restock", async () => generateRestockOrder(lowStockItems))}
               disabled={isRunning("restock")}
             >
-              📦 Generate Restock Order
+              <Package size={16} /> Generate Restock Order
             </button>
           </div>
         </div>

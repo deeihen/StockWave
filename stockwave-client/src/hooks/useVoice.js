@@ -9,89 +9,110 @@ export function useVoice({ onCommand, enabled = true }) {
   const finalizedRef = useRef(false);
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [error, setError] = useState(null);
   const supported = !!SpeechRecognition;
 
   const processCommand = useCallback((text) => {
     const cmd = text.toLowerCase().trim();
-    console.log("Final transcript:", cmd);
+    if (!cmd) return;
+    
+    console.log("Processing voice command:", cmd);
 
     if (cmd.includes("export"))            onCommand("export_report");
     else if (cmd.includes("dashboard"))    onCommand("navigate", "dashboard");
     else if (cmd.includes("inventory"))    onCommand("navigate", "inventory");
+    else if (cmd.includes("product"))      onCommand("add_product");
     else if (cmd.includes("report"))       onCommand("navigate", "reports");
     else if (cmd.includes("user"))         onCommand("navigate", "users");
     else if (cmd.includes("setting"))      onCommand("navigate", "settings");
-    else if (
-      (cmd.includes("add") && cmd.includes("product")) ||
-      cmd.includes("add products") ||
-      cmd.includes("add item") ||
-      cmd.includes("new product") ||
-      cmd.includes("new item") ||
-      cmd.includes("create product")
-    )
-                                           onCommand("add_product");
-    else if (cmd.includes("logout") || cmd.includes("log out") || cmd.includes("sign out"))
-                                           onCommand("logout");
+    else if (cmd.includes("logout") || cmd.includes("log out")) onCommand("logout");
   }, [onCommand]);
+
+  const stopListening = useCallback(() => {
+    if (recogRef.current) {
+      try {
+        recogRef.current.stop();
+      } catch (e) {
+        // already stopped
+      }
+    }
+    setListening(false);
+  }, []);
 
   const startListening = useCallback(() => {
     if (!supported) return;
+    if (listening) {
+      stopListening();
+      return;
+    }
 
+    setError(null);
     finalizedRef.current = false;
 
     const recog = new SpeechRecognition();
     recog.lang = "en-US";
-    recog.continuous = false;    // one phrase at a time — cleanest approach
-    recog.interimResults = true; // shows live transcript in the UI while speaking
+    recog.continuous = false;
+    recog.interimResults = true;
 
-    recog.onstart = () => setListening(true);
-
-    recog.onresult = (e) => {
-      const hasFinal = Array.from(e.results).some(r => r.isFinal);
-      const current = Array.from(e.results)
-        .map(r => r[0].transcript)
-        .join(" ");
-      setTranscript(current);
-      if (hasFinal && !finalizedRef.current) {
-        finalizedRef.current = true;
-        recog.stop();
-      }
-    };
-
-    // onend fires ONCE with the full final phrase — no premature resets
-    recog.onend = () => {
-      setListening(false);
-      setTranscript(prev => {
-        if (prev) processCommand(prev);
-        return "";
-      });
-    };
-
-    recog.onerror = (e) => {
-      console.error("Speech error:", e.error);
-      setListening(false);
+    recog.onstart = () => {
+      setListening(true);
       setTranscript("");
     };
 
+    recog.onresult = (e) => {
+      const result = e.results[e.results.length - 1];
+      const current = Array.from(e.results)
+        .map(r => r[0].transcript)
+        .join(" ");
+      
+      setTranscript(current);
+
+      if (result.isFinal && !finalizedRef.current) {
+        finalizedRef.current = true;
+        // Don't stop immediately to allow short pauses if needed, 
+        // but since continuous is false, the browser usually stops anyway.
+      }
+    };
+
+    recog.onend = () => {
+      setListening(false);
+      // Retrieve the latest transcript from the ref-like closure
+      // We use a small delay to ensure the last state update is reflected
+      setTimeout(() => {
+        setTranscript(prev => {
+          if (prev) processCommand(prev);
+          return "";
+        });
+      }, 100);
+    };
+
+    recog.onerror = (e) => {
+      console.error("Speech Recognition Error:", e.error);
+      setError(e.error);
+      setListening(false);
+      setTranscript("");
+      
+      if (e.error === 'not-allowed') {
+        alert("Microphone access was denied. Please enable it in your browser settings.");
+      }
+    };
+
     recogRef.current = recog;
-    recog.start();
-  }, [supported, processCommand]);
-
-  const stopListening = useCallback(() => {
-    recogRef.current?.stop();
-  }, []);
-
-  useEffect(() => {
-    if (!enabled) {
-      recogRef.current?.stop();
-      finalizedRef.current = false;
+    try {
+      recog.start();
+    } catch (err) {
+      console.error("Failed to start recognition:", err);
+      setListening(false);
     }
-  }, [enabled]);
+  }, [supported, listening, stopListening, processCommand]);
 
-  // cleanup on unmount
   useEffect(() => {
-    return () => recogRef.current?.abort();
+    return () => {
+      if (recogRef.current) {
+        recogRef.current.abort();
+      }
+    };
   }, []);
 
-  return { listening, transcript, startListening, stopListening, supported };
+  return { listening, transcript, error, startListening, stopListening, supported };
 }

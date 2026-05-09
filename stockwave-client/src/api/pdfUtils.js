@@ -228,7 +228,7 @@ export function generateRestockOrder(lowStockItems) {
       </div>
 
       <div class="alert-box">
-        ⚠️ The following items have fallen below minimum stock levels and require immediate restocking.
+        The following items have fallen below minimum stock levels and require immediate restocking.
       </div>
 
       <table>

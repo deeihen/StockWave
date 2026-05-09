@@ -1,15 +1,16 @@
 import { useState, useCallback } from "react";
 import { useGesture } from "../hooks/useGesture";
 import "./GestureControl.css";
+import { Hand, ThumbsUp, Mic, CameraOff } from "lucide-react";
 
 const GESTURE_LABELS = {
-  open_palm: { emoji: "✋", label: "Open Palm",  action: "→ Dashboard" },
-  peace:     { emoji: "✌️", label: "Peace Sign", action: "→ Inventory" },
-  point_up:  { emoji: "☝️", label: "Point Up",   action: "→ Reports"   },
-  thumbs_up: { emoji: "👍", label: "Thumbs Up",  action: "→ Users"     },
-  fist:      { emoji: "✊", label: "Fist",        action: "→ Settings"  },
-  voice_start: { emoji: "🗣️", label: "3 Fingers", action: "→ Voice On" },
-  stop_camera: { emoji: "🤙", label: "Pinky Up", action: "→ Stop Camera" },
+  open_palm: { icon: Hand, label: "Open Palm",  action: "Dashboard" },
+  peace:     { icon: Hand, label: "Peace Sign", action: "Inventory" },
+  point_up:  { icon: Hand, label: "Point Up",   action: "Reports"   },
+  thumbs_up: { icon: ThumbsUp, label: "Thumbs Up",  action: "Users"     },
+  fist:      { icon: Hand, label: "Fist",        action: "Settings"  },
+  voice_start: { icon: Mic, label: "3 Fingers", action: "Voice On" },
+  stop_camera: { icon: CameraOff, label: "Pinky Up", action: "Stop Camera" },
 };
 
 export default function GestureControl({ onGesture }) {
@@ -71,7 +72,10 @@ export default function GestureControl({ onGesture }) {
             />
             {lastGesture && (
               <div className="gesture-detected">
-                <span>{GESTURE_LABELS[lastGesture]?.emoji}</span>
+                {(() => {
+                  const Icon = GESTURE_LABELS[lastGesture]?.icon;
+                  return Icon ? <Icon size={24} /> : null;
+                })()}
                 <span>{GESTURE_LABELS[lastGesture]?.label}</span>
               </div>
             )}
@@ -95,7 +99,7 @@ export default function GestureControl({ onGesture }) {
             <p className="gesture-guide-title">Gestures</p>
             {Object.entries(GESTURE_LABELS).map(([key, val]) => (
               <div key={key} className="gesture-guide-item">
-                <span className="gesture-guide-emoji">{val.emoji}</span>
+                <span className="gesture-guide-emoji"><val.icon size={18} /></span>
                 <div>
                   <p className="gesture-guide-name">{val.label}</p>
                   <p className="gesture-guide-action">{val.action}</p>

@@ -2,6 +2,18 @@ import { useState } from "react";
 import "./Register.css";
 import { registerUser } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
+import {
+  User as UserIcon,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  LayoutDashboard,
+  Hand,
+  Mic,
+  BarChart3,
+  AlertCircle
+} from "lucide-react";
 
 export default function Register({ onGoLogin }) {
   const [form, setForm] = useState({
@@ -61,8 +73,7 @@ export default function Register({ onGoLogin }) {
     });
   };
 
-  if (success) { onGoLogin();
-  }
+  if (success) { onGoLogin(); }
 
   return (
     <div className="reg-root">
@@ -76,15 +87,15 @@ export default function Register({ onGoLogin }) {
           </p>
           <ul className="feature-list">
             <li>
-              <span className="feat-icon"></span>
+              <span className="feat-icon"><Hand size={18} /></span>
               <span>Gesture-based controls</span>
             </li>
             <li>
-              <span className="feat-icon"></span>
+              <span className="feat-icon"><Mic size={18} /></span>
               <span>Voice command support</span>
             </li>
             <li>
-              <span className="feat-icon"></span>
+              <span className="feat-icon"><BarChart3 size={18} /></span>
               <span>Real-time inventory reports</span>
             </li>
           </ul>
@@ -102,12 +113,7 @@ export default function Register({ onGoLogin }) {
           {/* Logo */}
           <div className="reg-logo">
             <div className="logo-icon">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect width="12" height="12" rx="2" fill="#1a6b3c"/>
-                <rect x="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5"/>
-                <rect y="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5"/>
-                <rect x="16" y="16" width="12" height="12" rx="2" fill="#1a6b3c"/>
-              </svg>
+              <LayoutDashboard size={24} />
             </div>
             <span className="logo-text">StockWave</span>
           </div>
@@ -117,10 +123,7 @@ export default function Register({ onGoLogin }) {
 
           {error && (
             <div className="reg-error">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="8" r="7" stroke="#c0392b" strokeWidth="1.5"/>
-                <path d="M8 4.5v4M8 10.5v1" stroke="#c0392b" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
+              <AlertCircle size={16} />
               {error}
             </div>
           )}
@@ -130,10 +133,7 @@ export default function Register({ onGoLogin }) {
             <div className="field-group">
               <label className="field-label" htmlFor="fullName">Full Name</label>
               <div className="field-wrap">
-                <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="8" r="4" stroke="#aaa" strokeWidth="1.5"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <UserIcon className="field-icon" size={18} color="#aaa" />
                 <input
                   id="fullName" name="fullName" type="text"
                   className="field-input" placeholder="Your full name"
@@ -146,10 +146,7 @@ export default function Register({ onGoLogin }) {
             <div className="field-group">
               <label className="field-label" htmlFor="username">Username</label>
               <div className="field-wrap">
-                <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-                  <circle cx="12" cy="7" r="4" stroke="#aaa" strokeWidth="1.5"/>
-                </svg>
+                <UserIcon className="field-icon" size={18} color="#aaa" />
                 <input
                   id="username" name="username" type="text"
                   className="field-input" placeholder="username"
@@ -162,10 +159,7 @@ export default function Register({ onGoLogin }) {
             <div className="field-group">
               <label className="field-label" htmlFor="email">Email Address</label>
               <div className="field-wrap">
-                <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect x="2" y="4" width="20" height="16" rx="2" stroke="#aaa" strokeWidth="1.5"/>
-                  <path d="M2 8l10 7 10-7" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <Mail className="field-icon" size={18} color="#aaa" />
                 <input
                   id="email" name="email" type="email"
                   className="field-input" placeholder="you@email.com"
@@ -178,10 +172,7 @@ export default function Register({ onGoLogin }) {
             <div className="field-group">
               <label className="field-label" htmlFor="password">Password</label>
               <div className="field-wrap">
-                <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect x="5" y="11" width="14" height="10" rx="2" stroke="#aaa" strokeWidth="1.5"/>
-                  <path d="M8 11V7a4 4 0 018 0v4" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <Lock className="field-icon" size={18} color="#aaa" />
                 <input
                   id="password" name="password"
                   type={showPassword ? "text" : "password"}
@@ -190,10 +181,7 @@ export default function Register({ onGoLogin }) {
                 />
                 <button type="button" className="show-pass-btn"
                   onClick={() => setShowPassword(v => !v)} tabIndex={-1}>
-                  {showPassword
-                    ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.5 10.677A3 3 0 0113.323 13.5M6.362 6.368A9.955 9.955 0 002.1 12c1.69 4.07 5.73 7 9.9 7a9.95 9.95 0 005.638-1.738M9 5.34A9.946 9.946 0 0112 5c4.17 0 8.21 2.93 9.9 7a10.036 10.036 0 01-2.415 3.585" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    : <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M2.1 12C3.79 7.93 7.83 5 12 5s8.21 2.93 9.9 7c-1.69 4.07-5.73 7-9.9 7S3.79 16.07 2.1 12z" stroke="#aaa" strokeWidth="1.5"/><circle cx="12" cy="12" r="3" stroke="#aaa" strokeWidth="1.5"/></svg>
-                  }
+                  {showPassword ? <EyeOff size={18} color="#aaa" /> : <Eye size={18} color="#aaa" />}
                 </button>
               </div>
             </div>
@@ -202,10 +190,7 @@ export default function Register({ onGoLogin }) {
             <div className="field-group">
               <label className="field-label" htmlFor="confirmPassword">Confirm Password</label>
               <div className="field-wrap">
-                <svg className="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect x="5" y="11" width="14" height="10" rx="2" stroke="#aaa" strokeWidth="1.5"/>
-                  <path d="M8 11V7a4 4 0 018 0v4" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <Lock className="field-icon" size={18} color="#aaa" />
                 <input
                   id="confirmPassword" name="confirmPassword"
                   type={showConfirm ? "text" : "password"}
@@ -214,17 +199,14 @@ export default function Register({ onGoLogin }) {
                 />
                 <button type="button" className="show-pass-btn"
                   onClick={() => setShowConfirm(v => !v)} tabIndex={-1}>
-                  {showConfirm
-                    ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.5 10.677A3 3 0 0113.323 13.5M6.362 6.368A9.955 9.955 0 002.1 12c1.69 4.07 5.73 7 9.9 7a9.95 9.95 0 005.638-1.738M9 5.34A9.946 9.946 0 0112 5c4.17 0 8.21 2.93 9.9 7a10.036 10.036 0 01-2.415 3.585" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    : <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M2.1 12C3.79 7.93 7.83 5 12 5s8.21 2.93 9.9 7c-1.69 4.07-5.73 7-9.9 7S3.79 16.07 2.1 12z" stroke="#aaa" strokeWidth="1.5"/><circle cx="12" cy="12" r="3" stroke="#aaa" strokeWidth="1.5"/></svg>
-                  }
+                  {showConfirm ? <EyeOff size={18} color="#aaa" /> : <Eye size={18} color="#aaa" />}
                 </button>
               </div>
             </div>
 
             {/* Submit */}
             <button type="submit" className="reg-btn" disabled={loading || isRunning("register")}>
-              {loading ? <span className="spinner" /> : "Create Account"}
+              {loading ? <div className="spinner" /> : "Create Account"}
             </button>
 
             {/* Back to Login */}

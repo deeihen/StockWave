@@ -2,6 +2,18 @@ import { useState, useEffect, useRef } from "react";
 import "./Inventory.css";
 import { getProducts, createProduct, updateProduct, deleteProduct } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
+import {
+  Plus,
+  Search,
+  Trash2,
+  Edit2,
+  PlusCircle,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Package,
+  AlertCircle
+} from "lucide-react";
 
 const categories = ["All", "Electronics", "Furniture", "Office Supplies"];
 const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
@@ -42,7 +54,7 @@ function ProductModal({ mode, product, onClose, onSave, saving }) {
       <div className="modal-card" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">{mode === "add" ? "Add New Product" : "Edit Product"}</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <div className="modal-body">
@@ -105,10 +117,10 @@ function DeleteModal({ product, onClose, onConfirm, deleting }) {
       <div className="modal-card small" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Delete Product</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
         </div>
         <div className="delete-body">
-          <div className="delete-icon">🗑️</div>
+          <div className="delete-icon" style={{ color: "#ef4444" }}><Trash2 size={48} /></div>
           <p className="delete-msg">
             Are you sure you want to delete <strong>{product.name}</strong>?
             <br/>This action cannot be undone.
@@ -145,7 +157,7 @@ function AddStockModal({ product, onClose, onSave, saving }) {
       <div className="modal-card small" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title">Add Stock</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
         </div>
         {error && <div className="modal-error">{error}</div>}
         <div className="modal-body">
@@ -340,13 +352,14 @@ export default function Inventory({ openAddSignal = 0 }) {
           <p className="inv-sub">Manage and track all your products</p>
         </div>
         <button className="btn-add" onClick={() => setModal({ type: "add" })}>
-          <span>＋</span> Add Product
+          <Plus size={18} /> Add Product
         </button>
       </div>
 
       {apiError && (
         <div style={{ background: "#fef2f2", color: "#ef4444", padding: "12px 16px",
-          borderRadius: 10, border: "1px solid #fecaca", fontSize: 13 }}>
+          borderRadius: 10, border: "1px solid #fecaca", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+          <AlertCircle size={16} />
           {apiError}
         </div>
       )}
@@ -381,10 +394,7 @@ export default function Inventory({ openAddSignal = 0 }) {
 
           <div className="inv-filters">
             <div className="search-box">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <circle cx="11" cy="11" r="8" stroke="#aaa" strokeWidth="1.5"/>
-                <path d="M21 21l-4.35-4.35" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
+              <Search size={16} color="#aaa" />
               <input className="search-inp" placeholder="Search products..."
                 value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
@@ -400,7 +410,7 @@ export default function Inventory({ openAddSignal = 0 }) {
             </div>
             {selected.length > 0 && (
               <button className="btn-bulk-delete" onClick={handleBulkDelete} disabled={bulkDeleting}>
-                🗑 Delete {selected.length} selected
+                <Trash2 size={16} /> Delete {selected.length} selected
               </button>
             )}
           </div>
@@ -408,7 +418,7 @@ export default function Inventory({ openAddSignal = 0 }) {
           <div className="inv-card-list">
             {paginated.length === 0 ? (
               <div className="inv-card empty">
-                <span className="empty-icon">📦</span>
+                <Package size={48} color="#e5e7eb" />
                 <p>No products found. Click "Add Product" to get started.</p>
               </div>
             ) : paginated.map(p => (
@@ -434,11 +444,11 @@ export default function Inventory({ openAddSignal = 0 }) {
                 </div>
                 <div className="inv-card-actions">
                   <button className="act-btn add" title="Add stock"
-                    onClick={() => setModal({ type: "add-stock", product: p })}>➕</button>
+                    onClick={() => setModal({ type: "add-stock", product: p })}><PlusCircle size={16} /></button>
                   <button className="act-btn edit" title="Edit"
-                    onClick={() => setModal({ type: "edit", product: p })}>✏️</button>
+                    onClick={() => setModal({ type: "edit", product: p })}><Edit2 size={16} /></button>
                   <button className="act-btn del" title="Delete"
-                    onClick={() => setModal({ type: "delete", product: p })}>🗑️</button>
+                    onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
                 </div>
               </div>
             ))}
@@ -467,7 +477,7 @@ export default function Inventory({ openAddSignal = 0 }) {
                   <tr>
                     <td colSpan="8" className="empty-row">
                       <div className="empty-state">
-                        <span className="empty-icon">📦</span>
+                        <Package size={48} color="#e5e7eb" />
                         <p>No products found. Click "Add Product" to get started.</p>
                       </div>
                     </td>
@@ -490,11 +500,11 @@ export default function Inventory({ openAddSignal = 0 }) {
                     <td>
                       <div className="action-btns">
                         <button className="act-btn add" title="Add stock"
-                          onClick={() => setModal({ type: "add-stock", product: p })}>➕</button>
+                          onClick={() => setModal({ type: "add-stock", product: p })}><PlusCircle size={16} /></button>
                         <button className="act-btn edit" title="Edit"
-                          onClick={() => setModal({ type: "edit", product: p })}>✏️</button>
+                          onClick={() => setModal({ type: "edit", product: p })}><Edit2 size={16} /></button>
                         <button className="act-btn del" title="Delete"
-                          onClick={() => setModal({ type: "delete", product: p })}>🗑️</button>
+                          onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -509,11 +519,11 @@ export default function Inventory({ openAddSignal = 0 }) {
                 Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length}
               </span>
               <div className="page-btns">
-                <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
+                <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={16} /></button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
                   <button key={n} className={`page-btn ${n === page ? "active" : ""}`} onClick={() => setPage(n)}>{n}</button>
                 ))}
-                <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+                <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={16} /></button>
               </div>
             </div>
           )}

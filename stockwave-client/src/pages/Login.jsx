@@ -2,6 +2,17 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
 import { loginUser } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
+import {
+  User as UserIcon,
+  Lock,
+  Eye,
+  EyeOff,
+  Camera,
+  RefreshCcw,
+  AlertCircle,
+  ScanQrCode,
+  LayoutDashboard
+} from "lucide-react";
 
 export default function Login({ onLoginSuccess, onGoRegister }) {
   const [activeTab, setActiveTab] = useState("credentials");
@@ -355,33 +366,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
           {/* Logo */}
           <div className="login-logo">
             <div className="logo-icon">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect width="12" height="12" rx="2" fill="#1a6b3c" />
-                <rect
-                  x="16"
-                  width="12"
-                  height="12"
-                  rx="2"
-                  fill="#1a6b3c"
-                  opacity="0.5"
-                />
-                <rect
-                  y="16"
-                  width="12"
-                  height="12"
-                  rx="2"
-                  fill="#1a6b3c"
-                  opacity="0.5"
-                />
-                <rect
-                  x="16"
-                  y="16"
-                  width="12"
-                  height="12"
-                  rx="2"
-                  fill="#1a6b3c"
-                />
-              </svg>
+              <LayoutDashboard size={28} color="#059669" />
             </div>
             <span className="logo-text">StockWave</span>
           </div>
@@ -412,21 +397,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
 
           {activeTab === "credentials" && error && (
             <div className="login-error">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle
-                  cx="8"
-                  cy="8"
-                  r="7"
-                  stroke="#c0392b"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M8 4.5v4M8 10.5v1"
-                  stroke="#c0392b"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <AlertCircle size={16} />
               {error}
             </div>
           )}
@@ -439,27 +410,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                   Username
                 </label>
                 <div className="field-wrap">
-                  <svg
-                    className="field-icon"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      cx="12"
-                      cy="8"
-                      r="4"
-                      stroke="#aaa"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
-                      stroke="#aaa"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  <UserIcon className="field-icon" size={18} color="#aaa" />
                   <input
                     id="username"
                     name="username"
@@ -479,29 +430,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                   Password
                 </label>
                 <div className="field-wrap">
-                  <svg
-                    className="field-icon"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <rect
-                      x="5"
-                      y="11"
-                      width="14"
-                      height="10"
-                      rx="2"
-                      stroke="#aaa"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M8 11V7a4 4 0 018 0v4"
-                      stroke="#aaa"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  <Lock className="field-icon" size={18} color="#aaa" />
                   <input
                     id="password"
                     name="password"
@@ -518,31 +447,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                     onClick={() => setShowPassword((v) => !v)}
                     tabIndex={-1}
                   >
-                    {showPassword ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <path
-                          d="M3 3l18 18M10.5 10.677A3 3 0 0113.323 13.5M6.362 6.368A9.955 9.955 0 002.1 12c1.69 4.07 5.73 7 9.9 7a9.95 9.95 0 005.638-1.738M9 5.34A9.946 9.946 0 0112 5c4.17 0 8.21 2.93 9.9 7a10.036 10.036 0 01-2.415 3.585"
-                          stroke="#aaa"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <path
-                          d="M2.1 12C3.79 7.93 7.83 5 12 5s8.21 2.93 9.9 7c-1.69 4.07-5.73 7-9.9 7S3.79 16.07 2.1 12z"
-                          stroke="#aaa"
-                          strokeWidth="1.5"
-                        />
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="3"
-                          stroke="#aaa"
-                          strokeWidth="1.5"
-                        />
-                      </svg>
-                    )}
+                    {showPassword ? <EyeOff size={18} color="#aaa" /> : <Eye size={18} color="#aaa" />}
                   </button>
                 </div>
               </div>
@@ -571,7 +476,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                 className={`login-btn ${loading ? "loading" : ""}`}
                 disabled={loading || isRunning("login")}
               >
-                {loading ? <span className="spinner" /> : "Sign In"}
+                {loading ? <RefreshCcw className="spinner" size={20} /> : "Sign In"}
               </button>
 
               {/* Go to Register */}
@@ -599,15 +504,17 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                   <video ref={videoRef} className="qr-video" />
                 ) : (
                   <div className="qr-placeholder">
-                    <div className="qr-icon">QR</div>
+                    <div className="qr-icon-wrap">
+                      <ScanQrCode size={48} color="#e5e7eb" />
+                    </div>
                     <p>Camera is off</p>
                   </div>
                 )}
               </div>
-              {qrError && <div className="qr-error">{qrError}</div>}
+              {qrError && <div className="qr-error"><AlertCircle size={16} /> {qrError}</div>}
               <div className="qr-actions">
                 <button type="button" className="qr-btn" onClick={toggleQr} disabled={loading || isRunning("qr-toggle") || isRunning("login")}>
-                  {qrActive ? "Stop scan" : "Start scan"}
+                  {qrActive ? "Stop scan" : <><Camera size={16} style={{marginRight: 6}}/> Start scan</>}
                 </button>
                 {qrActive && <span className="qr-status">Scanning...</span>}
               </div>

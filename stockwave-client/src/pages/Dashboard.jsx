@@ -9,17 +9,27 @@ import Users from "./Users";
 import Settings from "./Settings";
 import { getReportSummary, getRecentActivity, getLowStock } from "../api/stockwaveApi";
 import {
-  AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer
-} from "recharts";
+  LayoutDashboard,
+  Package,
+  BarChart3,
+  Users as UsersIcon,
+  Settings as SettingsIcon,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  Download,
+  PlusCircle,
+  TrendingUp,
+  TrendingDown
+} from "lucide-react";
 
 // ── Stat Card ──────────────────────────────────────
-function StatCard({ icon, label, value, sub, color, delay }) {
+function StatCard({ icon: Icon, label, value, sub, color, delay }) {
   return (
     <div className="stat-card" style={{ animationDelay: delay }}>
       <div className="stat-icon-wrap" style={{ background: color + "18" }}>
-        <span style={{ color }}>{icon}</span>
+        <Icon size={24} style={{ color }} />
       </div>
       <div className="stat-info">
         <p className="stat-label">{label}</p>
@@ -29,18 +39,6 @@ function StatCard({ icon, label, value, sub, color, delay }) {
     </div>
   );
 }
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="chart-tooltip">
-        <p className="tooltip-label">{label}</p>
-        <p className="tooltip-value">{payload[0].value} units</p>
-      </div>
-    );
-  }
-  return null;
-};
 
 const pageTitles = {
   dashboard: { title: "Dashboard", sub: "Welcome back — here's what's happening today." },
@@ -62,11 +60,11 @@ export default function Dashboard({ onLogout }) {
   const profilePhotoUrl = user.profilePhotoUrl || "";
 
   const navItems = [
-    { id: "dashboard", icon: "⊞", label: "Dashboard" },
-    { id: "inventory", icon: "📦", label: "Inventory" },
-    { id: "reports", icon: "📊", label: "Reports" },
-    { id: "users", icon: "👥", label: "Users" },
-    { id: "settings", icon: "⚙️", label: "Settings" },
+    { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { id: "inventory", icon: Package, label: "Inventory" },
+    { id: "reports", icon: BarChart3, label: "Reports" },
+    { id: "users", icon: UsersIcon, label: "Users" },
+    { id: "settings", icon: SettingsIcon, label: "Settings" },
   ];
 
   const { title, sub } = pageTitles[activePage] || pageTitles.dashboard;
@@ -116,17 +114,12 @@ export default function Dashboard({ onLogout }) {
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <div className="s-logo-icon">
-              <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-                <rect width="12" height="12" rx="2" fill="#1a6b3c" />
-                <rect x="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5" />
-                <rect y="16" width="12" height="12" rx="2" fill="#1a6b3c" opacity="0.5" />
-                <rect x="16" y="16" width="12" height="12" rx="2" fill="#1a6b3c" />
-              </svg>
+              <LayoutDashboard size={20} />
             </div>
             {sidebarOpen && <span className="s-logo-text">StockWave</span>}
           </div>
           <button className="sidebar-toggle" onClick={() => setSidebarOpen(v => !v)}>
-            {sidebarOpen ? "‹" : "›"}
+            {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
           </button>
         </div>
 
@@ -138,7 +131,7 @@ export default function Dashboard({ onLogout }) {
               onClick={() => setActivePage(item.id)}
               title={!sidebarOpen ? item.label : ""}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon"><item.icon size={20} /></span>
               {sidebarOpen && <span className="nav-label">{item.label}</span>}
             </button>
           ))}
@@ -161,10 +154,7 @@ export default function Dashboard({ onLogout }) {
             )}
           </div>
           <button className="logout-btn" onClick={onLogout} title="Logout">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
-                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <LogOut size={18} />
           </button>
         </div>
       </aside>
@@ -196,7 +186,7 @@ export default function Dashboard({ onLogout }) {
               className={`mobile-nav-item ${activePage === item.id ? "active" : ""}`}
               onClick={() => setActivePage(item.id)}
             >
-              <span className="mobile-nav-icon">{item.icon}</span>
+              <span className="mobile-nav-icon"><item.icon size={20} /></span>
               <span className="mobile-nav-label">{item.label}</span>
             </button>
           ))}
@@ -245,18 +235,18 @@ function DashboardHome() {
     <div className="dash-content">
       {/* ── STAT CARDS ── */}
       <div className="stats-grid">
-        <StatCard icon="📦" label="Total Products"
+        <StatCard icon={Package} label="Total Products"
           value={summary?.totalProducts ?? "—"}
-          sub="In database" color="#1a6b3c" delay="0ms" />
-        <StatCard icon="⚠️" label="Low Stock"
+          sub="In database" color="#059669" delay="0ms" />
+        <StatCard icon={AlertTriangle} label="Low Stock"
           value={summary?.lowStock ?? "—"}
-          sub="Needs restocking" color="#d97706" delay="80ms" />
-        <StatCard icon="📥" label="Items Added"
+          sub="Needs restocking" color="#f59e0b" delay="80ms" />
+        <StatCard icon={TrendingUp} label="Items Added"
           value={summary?.itemsAddedThisMonth ?? "—"}
-          sub="This month" color="#2563eb" delay="160ms" />
-        <StatCard icon="📤" label="Items Removed"
+          sub="This month" color="#3b82f6" delay="160ms" />
+        <StatCard icon={TrendingDown} label="Items Removed"
           value={summary?.itemsRemovedThisMonth ?? "—"}
-          sub="This month" color="#7c3aed" delay="240ms" />
+          sub="This month" color="#8b5cf6" delay="240ms" />
       </div>
 
       {/* ── BOTTOM ROW ── */}
@@ -305,8 +295,8 @@ function DashboardHome() {
             <span className="alert-count">{lowStock.length}</span>
           </div>
           {lowStock.length === 0 ? (
-            <p style={{ color: "#9ca3af", fontSize: 13 }}>
-              All items are well stocked! 🎉
+            <p style={{ color: "#9ca3af", fontSize: 13, padding: "12px 0" }}>
+              All items are well stocked!
             </p>
           ) : (
             <div className="low-stock-list">

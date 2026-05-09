@@ -51,6 +51,7 @@ namespace StockWave.Server.Controllers
             user.Email = dto.Email;
             user.PhoneNumber = dto.PhoneNumber ?? user.PhoneNumber;
             user.Bio = dto.Bio ?? user.Bio;
+            user.Status = dto.Status ?? user.Status;
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "User updated." });
@@ -179,7 +180,7 @@ namespace StockWave.Server.Controllers
         }
     }
 
-    public record UpdateUserDto(string FullName, string Username, string Email, string? PhoneNumber, string? Bio);
+    public record UpdateUserDto(string FullName, string Username, string Email, string? PhoneNumber, string? Bio, string? Status);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
     public record SecuritySettingsDto(bool EnableTwoFactor, bool LoginAlertsEnabled, int SessionTimeoutMinutes);
 }

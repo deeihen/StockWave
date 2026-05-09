@@ -8,6 +8,7 @@ import {
 } from "../api/stockwaveApi";
 import "./Notifications.css";
 import { useActionGuard } from "../hooks/useActionGuard";
+import { Bell, PartyPopper, X } from "lucide-react";
 
 export default function Notifications() {
   const [open, setOpen] = useState(false);
@@ -99,7 +100,7 @@ export default function Notifications() {
         onClick={() => setOpen((v) => !v)}
         title="Notifications"
       >
-        🔔
+        <Bell size={20} />
         {unreadCount > 0 && (
           <span className="notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
         )}
@@ -130,7 +131,7 @@ export default function Notifications() {
               </div>
             ) : notifications.length === 0 ? (
               <div className="notif-empty">
-                <span className="notif-empty-icon">🎉</span>
+                <div className="notif-empty-icon"><PartyPopper size={48} color="#e5e7eb" /></div>
                 <p>All caught up! No notifications.</p>
               </div>
             ) : (
@@ -153,7 +154,7 @@ export default function Notifications() {
                     title="Delete"
                     disabled={isRunning(`delete-${n.id}`)}
                   >
-                    ✕
+                    <X size={16} />
                   </button>
                   {!n.isRead && <span className="notif-dot" />}
                 </div>

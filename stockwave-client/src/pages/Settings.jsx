@@ -2,12 +2,28 @@ import { useState } from "react";
 import "./Settings.css";
 import { changeMyPassword, updateSecuritySettings, clearActivityLogs, resetSystem, updateUser } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
+import { 
+  User as UserIcon, 
+  Settings as SettingsIcon, 
+  Bell, 
+  Lock, 
+  CheckCircle, 
+  AlertTriangle,
+  Mail,
+  Phone,
+  Briefcase,
+  Globe,
+  Clock,
+  ShieldCheck,
+  Smartphone,
+  Trash2
+} from "lucide-react";
 
 const tabs = [
-  { id: "profile", label: "Profile", icon: "👤" },
-  { id: "system", label: "System", icon: "⚙️" },
-  { id: "notifications", label: "Notifications", icon: "🔔" },
-  { id: "security", label: "Security", icon: "🔒" },
+  { id: "profile", label: "Account Profile", icon: UserIcon },
+  { id: "system", label: "General Settings", icon: SettingsIcon },
+  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "security", label: "Security & Safety", icon: Lock },
 ];
 
 // ── Toggle Switch ──────────────────────────────────
@@ -15,20 +31,23 @@ function Toggle({ checked, onChange }) {
   return (
     <button
       type="button"
-      className={`toggle ${checked ? "on" : "off"}`}
+      className={`toggle-switch ${checked ? "on" : "off"}`}
       onClick={() => onChange(!checked)}
     >
-      <span className="toggle-knob" />
+      <span className="toggle-thumb" />
     </button>
   );
 }
 
 // ── Section Card ───────────────────────────────────
-function Section({ title, sub, children }) {
+function Section({ title, sub, icon: Icon, children }) {
   return (
     <div className="settings-section">
       <div className="section-header">
-        <h3 className="section-title">{title}</h3>
+        <div className="section-title-wrap">
+          {Icon && <Icon size={18} className="section-icon" />}
+          <h3 className="section-title">{title}</h3>
+        </div>
         {sub && <p className="section-sub">{sub}</p>}
       </div>
       <div className="section-body">{children}</div>
@@ -64,7 +83,7 @@ export default function Settings() {
       username: user.username || "",
       email: user.email || "",
       phone: user.phoneNumber || "",
-      role: user.role || "Staff",
+      role: user.role || "Administrator",
       bio: user.bio || "",
     };
   });
@@ -97,7 +116,7 @@ export default function Settings() {
   };
 
   const [system, setSystem] = useState({
-    companyName: "StockWave Corp",
+    companyName: "StockWave Inventory",
     currency: "PHP",
     timezone: "Asia/Manila",
     lowStockThreshold: 10,
@@ -121,7 +140,7 @@ export default function Settings() {
     return {
       twoFactor: user.twoFactorEnabled || false,
       sessionTimeout: user.sessionTimeoutMinutes?.toString() || "30",
-      loginAlerts: user.loginAlertsEnabled !== false, // default to true
+      loginAlerts: user.loginAlertsEnabled !== false,
     };
   });
   const [securityLoading, setSecurityLoading] = useState(false);
@@ -129,8 +148,6 @@ export default function Settings() {
   const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
   const [passError, setPassError] = useState("");
   const [passSuccess, setPassSuccess] = useState(false);
-
-
 
   const showSaved = () => {
     setSaved(true);
@@ -159,53 +176,28 @@ export default function Settings() {
         setPassSuccess(true);
         setPasswords({ current: "", newPass: "", confirm: "" });
       } catch (err) {
-        const status = err.response?.status;
-        const serverMessage = err.response?.data?.message;
-        if (serverMessage) {
-          setPassError(serverMessage);
-          return;
-        }
-        if (status) {
-          setPassError(`Failed to update password. (HTTP ${status})`);
-          return;
-        }
-        setPassError("Failed to update password.");
+        setPassError(err.response?.data?.message || "Failed to update password.");
       }
     });
   };
-
-
 
   const handleSecurityUpdate = async () => {
     await run("save-security", async () => {
       setSecurityLoading(true);
       setSecurityMessage("");
-
       try {
         await updateSecuritySettings({
           enableTwoFactor: security.twoFactor,
           loginAlertsEnabled: security.loginAlerts,
           sessionTimeoutMinutes: parseInt(security.sessionTimeout) || 30,
         });
-
-        // Update localStorage user data
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         user.twoFactorEnabled = security.twoFactor;
         user.loginAlertsEnabled = security.loginAlerts;
         user.sessionTimeoutMinutes = parseInt(security.sessionTimeout) || 30;
         localStorage.setItem("user", JSON.stringify(user));
-
         setSecurityMessage("Security settings updated successfully!");
-        
-        // Apply session timeout immediately
-        const timeoutMinutes = parseInt(security.sessionTimeout) || 30;
-        if (timeoutMinutes > 0) {
-          // Set up session timeout warning
-          setTimeout(() => {
-            alert("Your session will expire in 5 minutes due to inactivity.");
-          }, (timeoutMinutes - 5) * 60 * 1000);
-        }
-
+        showSaved();
       } catch (err) {
         setSecurityMessage(err.response?.data?.message || "Failed to update security settings.");
       } finally {
@@ -215,34 +207,25 @@ export default function Settings() {
   };
 
   const handleClearLogs = async () => {
-    if (!confirm("Are you sure you want to clear all activity logs? This action cannot be undone.")) {
-      return;
-    }
-
+    if (!confirm("Clear all activity logs? This cannot be undone.")) return;
     await run("clear-logs", async () => {
       try {
         await clearActivityLogs();
-        alert("Activity logs cleared successfully!");
+        alert("Logs cleared.");
       } catch (err) {
-        alert(err.response?.data?.message || "Failed to clear activity logs.");
+        alert("Failed to clear logs.");
       }
     });
   };
 
   const handleResetSystem = async () => {
-    if (!confirm("Are you sure you want to reset the system to defaults? This will reset all users' security settings and cannot be undone.")) {
-      return;
-    }
-
+    if (!confirm("Reset system to defaults? This affects all user settings.")) return;
     await run("reset-system", async () => {
       try {
         await resetSystem();
-        alert("System reset to defaults successfully!");
-        
-        // Reload the page to refresh settings
         window.location.reload();
       } catch (err) {
-        alert(err.response?.data?.message || "Failed to reset system.");
+        alert("Failed to reset system.");
       }
     });
   };
@@ -252,12 +235,12 @@ export default function Settings() {
       {/* ── PAGE HEADER ── */}
       <div className="set-header">
         <div>
-          <h1 className="set-title">Settings</h1>
-          <p className="set-sub">Manage your preferences and system configuration</p>
+          <h1 className="set-title">Preferences</h1>
+          <p className="set-sub">Configure your individual account and global system rules</p>
         </div>
         {saved && (
           <div className="saved-toast">
-            ✅ Changes saved successfully
+            <CheckCircle size={14} /> <span>Saved Successfully</span>
           </div>
         )}
       </div>
@@ -271,7 +254,7 @@ export default function Settings() {
               className={`set-tab ${activeTab === t.id ? "active" : ""}`}
               onClick={() => setActiveTab(t.id)}
             >
-              <span className="set-tab-icon">{t.icon}</span>
+              <span className="set-tab-icon"><t.icon size={16} /></span>
               <span>{t.label}</span>
             </button>
           ))}
@@ -283,23 +266,25 @@ export default function Settings() {
           {/* ── PROFILE ── */}
           {activeTab === "profile" && (
             <div className="tab-pane">
-              <Section title="Profile Information" sub="Update your personal details">
-                {/* Avatar */}
-                <div className="avatar-section">
-                  <div className="settings-avatar">
+              <Section title="Personal Information" sub="Public and private account details" icon={UserIcon}>
+                <div className="profile-header-alt">
+                  <div className="settings-avatar-large">
                     {profile.name.charAt(0).toUpperCase()}
                   </div>
-                  <div>
-                    <p className="avatar-name">{profile.name}</p>
-                    <p className="avatar-role">{profile.role}</p>
+                  <div className="profile-header-text">
+                    <p className="ph-name">{profile.name}</p>
+                    <p className="ph-role">{profile.role}</p>
                   </div>
                 </div>
 
                 <div className="form-grid">
                   <div className="form-field">
                     <label className="form-label">Full Name</label>
-                    <input className="form-input" value={profile.name}
-                      onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
+                    <div className="input-with-icon">
+                      <UserIcon size={16} className="input-icon-abs" />
+                      <input className="form-input" value={profile.name}
+                        onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
+                    </div>
                   </div>
                   <div className="form-field">
                     <label className="form-label">Username</label>
@@ -308,24 +293,30 @@ export default function Settings() {
                   </div>
                   <div className="form-field">
                     <label className="form-label">Email Address</label>
-                    <input className="form-input" type="email" value={profile.email}
-                      onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
+                    <div className="input-with-icon">
+                      <Mail size={16} className="input-icon-abs" />
+                      <input className="form-input" type="email" value={profile.email}
+                        onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
+                    </div>
                   </div>
                   <div className="form-field">
                     <label className="form-label">Phone Number</label>
-                    <input className="form-input" value={profile.phone}
-                      onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
+                    <div className="input-with-icon">
+                      <Phone size={16} className="input-icon-abs" />
+                      <input className="form-input" value={profile.phone}
+                        onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))} />
+                    </div>
                   </div>
                   <div className="form-field full">
-                    <label className="form-label">Bio</label>
-                    <textarea className="form-input form-textarea" value={profile.bio}
-                      onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} />
+                    <label className="form-label">Biography</label>
+                    <textarea className="form-input form-textarea" placeholder="Tell us about yourself..."
+                      value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} />
                   </div>
                 </div>
               </Section>
               <div className="section-actions">
                 <button className="btn-save" onClick={handleSaveProfile} disabled={isRunning("save-profile")}>
-                  {isRunning("save-profile") ? "Saving..." : "Save Profile"}
+                  {isRunning("save-profile") ? "Applying..." : "Update Profile"}
                 </button>
               </div>
             </div>
@@ -334,64 +325,50 @@ export default function Settings() {
           {/* ── SYSTEM ── */}
           {activeTab === "system" && (
             <div className="tab-pane">
-              <Section title="System Settings" sub="Configure global system preferences">
+              <Section title="System Rules" sub="Defaults and localization" icon={SettingsIcon}>
                 <div className="form-grid">
                   <div className="form-field">
-                    <label className="form-label">Company Name</label>
-                    <input className="form-input" value={system.companyName}
-                      onChange={e => setSystem(s => ({ ...s, companyName: e.target.value }))} />
+                    <label className="form-label">Inventory Brand</label>
+                    <div className="input-with-icon">
+                      <Briefcase size={16} className="input-icon-abs" />
+                      <input className="form-input" value={system.companyName}
+                        onChange={e => setSystem(s => ({ ...s, companyName: e.target.value }))} />
+                    </div>
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Currency</label>
+                    <label className="form-label">Base Currency</label>
                     <select className="form-input" value={system.currency}
                       onChange={e => setSystem(s => ({ ...s, currency: e.target.value }))}>
-                      <option value="PHP">₱ Philippine Peso (PHP)</option>
-                      <option value="USD">$ US Dollar (USD)</option>
-                      <option value="EUR">€ Euro (EUR)</option>
+                      <option value="PHP">Philippine Peso (₱)</option>
+                      <option value="USD">US Dollar ($)</option>
                     </select>
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Timezone</label>
-                    <select className="form-input" value={system.timezone}
-                      onChange={e => setSystem(s => ({ ...s, timezone: e.target.value }))}>
-                      <option value="Asia/Manila">Asia/Manila (GMT+8)</option>
-                      <option value="UTC">UTC (GMT+0)</option>
-                      <option value="America/New_York">America/New_York (GMT-5)</option>
-                    </select>
+                    <label className="form-label">Localization</label>
+                    <div className="input-with-icon">
+                      <Globe size={16} className="input-icon-abs" />
+                      <select className="form-input" value={system.timezone}
+                        onChange={e => setSystem(s => ({ ...s, timezone: e.target.value }))}>
+                        <option value="Asia/Manila">Asia/Manila (GMT+8)</option>
+                        <option value="UTC">Universal Time (UTC)</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Date Format</label>
-                    <select className="form-input" value={system.dateFormat}
-                      onChange={e => setSystem(s => ({ ...s, dateFormat: e.target.value }))}>
-                      <option>MM/DD/YYYY</option>
-                      <option>DD/MM/YYYY</option>
-                      <option>YYYY-MM-DD</option>
-                    </select>
-                  </div>
-                  <div className="form-field">
-                    <label className="form-label">Language</label>
-                    <select className="form-input" value={system.language}
-                      onChange={e => setSystem(s => ({ ...s, language: e.target.value }))}>
-                      <option>English</option>
-                      <option>Filipino</option>
-                    </select>
-                  </div>
-                  <div className="form-field">
-                    <label className="form-label">Low Stock Threshold</label>
-                    <input className="form-input" type="number" min="1"
-                      value={system.lowStockThreshold}
-                      onChange={e => setSystem(s => ({ ...s, lowStockThreshold: e.target.value }))} />
-                    <p className="field-hint">Items below this quantity are flagged as low stock</p>
+                    <label className="form-label">Low Stock Warning</label>
+                    <div className="input-with-icon">
+                      <AlertTriangle size={16} className="input-icon-abs" />
+                      <input className="form-input" type="number" min="1"
+                        value={system.lowStockThreshold}
+                        onChange={e => setSystem(s => ({ ...s, lowStockThreshold: e.target.value }))} />
+                    </div>
+                    <p className="field-hint">Threshold for stock alerts</p>
                   </div>
                 </div>
               </Section>
               <div className="section-actions">
-                <button
-                  className="btn-save"
-                  onClick={() => run("save-system", async () => showSaved())}
-                  disabled={isRunning("save-system")}
-                >
-                  {isRunning("save-system") ? "Saving..." : "Save System Settings"}
+                <button className="btn-save" onClick={() => run("save-system", async () => showSaved())} disabled={isRunning("save-system")}>
+                   Apply Changes
                 </button>
               </div>
             </div>
@@ -400,42 +377,26 @@ export default function Settings() {
           {/* ── NOTIFICATIONS ── */}
           {activeTab === "notifications" && (
             <div className="tab-pane">
-              <Section title="Notification Preferences" sub="Choose what you want to be notified about">
-                <FieldRow label="Low Stock Alerts" sub="Get notified when items fall below threshold">
-                  <Toggle checked={notif.lowStockAlert}
-                    onChange={v => setNotif(n => ({ ...n, lowStockAlert: v }))} />
+              <Section title="Event Subscriptions" sub="Automated system alerts" icon={Bell}>
+                <FieldRow label="Low Stock Inventory" sub="Critical stock level alerts">
+                  <Toggle checked={notif.lowStockAlert} onChange={v => setNotif(n => ({ ...n, lowStockAlert: v }))} />
                 </FieldRow>
-                <FieldRow label="New User Registered" sub="Alert when a new user joins the system">
-                  <Toggle checked={notif.newUserAlert}
-                    onChange={v => setNotif(n => ({ ...n, newUserAlert: v }))} />
+                <FieldRow label="System Activity" sub="Alert on new user registrations">
+                  <Toggle checked={notif.newUserAlert} onChange={v => setNotif(n => ({ ...n, newUserAlert: v }))} />
                 </FieldRow>
-                <FieldRow label="Report Ready" sub="Notify when scheduled reports are generated">
-                  <Toggle checked={notif.reportReady}
-                    onChange={v => setNotif(n => ({ ...n, reportReady: v }))} />
-                </FieldRow>
-                <FieldRow label="Restock Reminder" sub="Weekly reminder for items that need restocking">
-                  <Toggle checked={notif.restockReminder}
-                    onChange={v => setNotif(n => ({ ...n, restockReminder: v }))} />
+                <FieldRow label="Weekly Digests" sub="Summarized inventory reports">
+                  <Toggle checked={notif.emailDigest} onChange={v => setNotif(n => ({ ...n, emailDigest: v }))} />
                 </FieldRow>
               </Section>
 
-              <Section title="Delivery Methods" sub="How you receive notifications">
-                <FieldRow label="Email Digest" sub="Daily summary sent to your email">
-                  <Toggle checked={notif.emailDigest}
-                    onChange={v => setNotif(n => ({ ...n, emailDigest: v }))} />
-                </FieldRow>
-                <FieldRow label="Browser Notifications" sub="Push notifications in your browser">
-                  <Toggle checked={notif.browserNotif}
-                    onChange={v => setNotif(n => ({ ...n, browserNotif: v }))} />
+              <Section title="Communication" sub="Delivery methods" icon={Mail}>
+                <FieldRow label="Desktop Notifications" sub="Real-time browser push alerts">
+                  <Toggle checked={notif.browserNotif} onChange={v => setNotif(n => ({ ...n, browserNotif: v }))} />
                 </FieldRow>
               </Section>
               <div className="section-actions">
-                <button
-                  className="btn-save"
-                  onClick={() => run("save-notif", async () => showSaved())}
-                  disabled={isRunning("save-notif")}
-                >
-                  {isRunning("save-notif") ? "Saving..." : "Save Preferences"}
+                <button className="btn-save" onClick={() => run("save-notif", async () => showSaved())}>
+                  Save Preferences
                 </button>
               </div>
             </div>
@@ -444,96 +405,66 @@ export default function Settings() {
           {/* ── SECURITY ── */}
           {activeTab === "security" && (
             <div className="tab-pane">
-              <Section title="Change Password" sub="Update your login password">
-                {passError && <div className="pass-error">{passError}</div>}
-                {passSuccess && <div className="pass-success">✅ Password changed successfully!</div>}
+              <Section title="Access Control" sub="Password and authentication" icon={ShieldCheck}>
+                {passError && <div className="pass-error-alt">{passError}</div>}
+                {passSuccess && <div className="pass-success-alt"><CheckCircle size={14} /> Updated</div>}
                 <div className="form-grid">
                   <div className="form-field full">
                     <label className="form-label">Current Password</label>
-                    <input className="form-input" type="password" placeholder="Enter current password"
-                      value={passwords.current}
-                      onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} />
+                    <input className="form-input" type="password" placeholder="••••••••"
+                      value={passwords.current} onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} />
                   </div>
                   <div className="form-field">
                     <label className="form-label">New Password</label>
-                    <input className="form-input" type="password" placeholder="Min. 6 characters"
-                      value={passwords.newPass}
-                      onChange={e => setPasswords(p => ({ ...p, newPass: e.target.value }))} />
+                    <input className="form-input" type="password" 
+                      value={passwords.newPass} onChange={e => setPasswords(p => ({ ...p, newPass: e.target.value }))} />
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Confirm New Password</label>
-                    <input className="form-input" type="password" placeholder="Re-enter new password"
-                      value={passwords.confirm}
-                      onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} />
+                    <label className="form-label">Confirm Password</label>
+                    <input className="form-input" type="password"
+                      value={passwords.confirm} onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} />
                   </div>
                 </div>
-                <button
-                  className="btn-save"
-                  style={{ marginTop: 4 }}
-                  onClick={handlePasswordChange}
-                  disabled={isRunning("change-password")}
-                >
-                  {isRunning("change-password") ? "Saving..." : "Update Password"}
+                <button className="btn-save-alt" onClick={handlePasswordChange} disabled={isRunning("change-password")}>
+                  Update Password
                 </button>
               </Section>
 
-              <Section title="Security Options" sub="Extra protection for your account">
-                {securityMessage && (
-                  <div className={`security-message ${securityMessage.includes("success") ? "success" : "error"}`}>
-                    {securityMessage}
-                  </div>
-                )}
-                <FieldRow label="Two-Factor Authentication" sub="Require a code in addition to password">
-                  <Toggle checked={security.twoFactor}
-                    onChange={v => setSecurity(s => ({ ...s, twoFactor: v }))} />
+              <Section title="Device & Session" sub="Global safety settings" icon={Smartphone}>
+                <FieldRow label="Multi-Factor Auth" sub="Additional login protection">
+                  <Toggle checked={security.twoFactor} onChange={v => setSecurity(s => ({ ...s, twoFactor: v }))} />
                 </FieldRow>
-                <FieldRow label="Login Alerts" sub="Email me when a new login is detected">
-                  <Toggle checked={security.loginAlerts}
-                    onChange={v => setSecurity(s => ({ ...s, loginAlerts: v }))} />
-                </FieldRow>
-                <FieldRow label="Session Timeout" sub="Automatically log out after inactivity">
-                  <select className="form-input inline-select"
-                    value={security.sessionTimeout}
+                <FieldRow label="Auto Session Log" sub="Timeout after inactivity">
+                  <select className="form-input-compact" value={security.sessionTimeout}
                     onChange={e => setSecurity(s => ({ ...s, sessionTimeout: e.target.value }))}>
-                    <option value="15">15 minutes</option>
-                    <option value="30">30 minutes</option>
-                    <option value="60">1 hour</option>
-                    <option value="0">Never</option>
+                    <option value="15">15m</option>
+                    <option value="30">30m</option>
+                    <option value="0">Off</option>
                   </select>
                 </FieldRow>
                 <div className="section-actions">
-                  <button 
-                    className="btn-save" 
-                    onClick={handleSecurityUpdate}
-                    disabled={securityLoading || isRunning("save-security")}
-                  >
-                    {securityLoading ? 'Saving...' : 'Save Security Settings'}
-                  </button>
+                  <button className="btn-save" onClick={handleSecurityUpdate}>Apply Security</button>
                 </div>
               </Section>
 
-              <div className="danger-zone">
-                <h3 className="danger-title">⚠️ Danger Zone</h3>
-                <p className="danger-sub">These actions are irreversible. Please be careful.</p>
-                <div className="danger-actions">
-                  <div className="danger-item">
-                    <div>
-                      <p className="danger-item-title">Clear All Activity Logs</p>
-                      <p className="danger-item-sub">Permanently delete all system activity records</p>
-                    </div>
-                    <button className="btn-danger" onClick={handleClearLogs} disabled={isRunning("clear-logs")}>
-                      {isRunning("clear-logs") ? "Clearing..." : "Clear Logs"}
-                    </button>
+              <div className="danger-zone-alt">
+                <div className="dz-header">
+                  <AlertTriangle size={18} color="#be123c" />
+                  <h3 className="dz-title">Critical Actions</h3>
+                </div>
+                <div className="danger-item">
+                  <div className="dz-text">
+                    <p className="dz-item-title">Wipe Activity Logs</p>
+                    <p className="dz-item-sub">Permanent deletion of history</p>
                   </div>
-                  <div className="danger-item">
-                    <div>
-                      <p className="danger-item-title">Reset System to Default</p>
-                      <p className="danger-item-sub">Resets all settings — does not delete products or users</p>
-                    </div>
-                    <button className="btn-danger" onClick={handleResetSystem} disabled={isRunning("reset-system")}>
-                      {isRunning("reset-system") ? "Resetting..." : "Reset"}
-                    </button>
+                  <button className="btn-danger-alt" onClick={handleClearLogs}><Trash2 size={14} /> Wipe</button>
+                </div>
+                <div className="danger-item">
+                  <div className="dz-text">
+                    <p className="dz-item-title">Factory Reset</p>
+                    <p className="dz-item-sub">Revert all system configurations</p>
                   </div>
+                  <button className="btn-danger-alt" onClick={handleResetSystem}>Reset</button>
                 </div>
               </div>
             </div>
