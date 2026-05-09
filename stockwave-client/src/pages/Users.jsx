@@ -21,7 +21,7 @@ import {
 
 const avatarColors = ["#059669", "#10b981", "#34d399", "#065f46", "#064e3b"];
 
-const emptyForm = { fullName: "", username: "", email: "", phoneNumber: "", bio: "", status: "Active" };
+const emptyForm = { fullName: "", username: "", email: "", phoneNumber: "", bio: "", status: "Active", role: "Staff" };
 
 // ── User Modal ─────────────────────────────────────
 function UserModal({ mode, user, onClose, onSave, saving }) {
@@ -31,7 +31,8 @@ function UserModal({ mode, user, onClose, onSave, saving }) {
     email: user.email || "",
     phoneNumber: user.phoneNumber || "",
     bio: user.bio || "",
-    status: user.status || "Active"
+    status: user.status || "Active",
+    role: user.role || "Staff"
   } : emptyForm);
   const [error, setError] = useState("");
 
@@ -68,7 +69,7 @@ function UserModal({ mode, user, onClose, onSave, saving }) {
             </div>
             <div>
               <p className="avatar-preview-name">{form.fullName || "New User"}</p>
-              <p className="avatar-preview-role">User Account</p>
+              <p className="avatar-preview-role">{form.role} Account</p>
             </div>
           </div>
 
@@ -104,6 +105,14 @@ function UserModal({ mode, user, onClose, onSave, saving }) {
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
+          </div>
+
+          <div className="mfield-group">
+            <label className="mfield-label">System Role</label>
+            <select className="mfield-input" name="role" value={form.role} onChange={handleChange}>
+              <option value="Staff">Staff (Standard Access)</option>
+              <option value="Admin">Admin (Full Control)</option>
+            </select>
           </div>
 
           <div className="mfield-group">

@@ -67,8 +67,8 @@ namespace StockWave.Server.Controllers
                 Price = dto.Price,
                 Unit = dto.Unit,
                 Status = GetStatus(dto.Stock),
-                CreatedAt = DateTime.UtcNow.AddHours(8),
-                UpdatedAt = DateTime.UtcNow.AddHours(8)
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             _db.Products.Add(product);
@@ -81,7 +81,7 @@ namespace StockWave.Server.Controllers
                 Action = "Added",
                 Quantity = dto.Stock,
                 PerformedBy = dto.PerformedBy ?? "Admin",
-                Timestamp = DateTime.UtcNow.AddHours(8)
+                Timestamp = DateTime.UtcNow
             });
 
             await _db.SaveChangesAsync();
@@ -123,7 +123,7 @@ namespace StockWave.Server.Controllers
             product.Price = dto.Price;
             product.Unit = dto.Unit;
             product.Status = GetStatus(dto.Stock);
-            product.UpdatedAt = DateTime.UtcNow.AddHours(8);
+            product.UpdatedAt = DateTime.UtcNow;
 
             var diff = dto.Stock - oldStock;
             if (diff != 0)
@@ -135,7 +135,7 @@ namespace StockWave.Server.Controllers
                     Action = diff > 0 ? "Added" : "Removed",
                     Quantity = Math.Abs(diff),
                     PerformedBy = dto.PerformedBy ?? "Admin",
-                    Timestamp = DateTime.UtcNow.AddHours(8)
+                    Timestamp = DateTime.UtcNow
                 });
             }
 

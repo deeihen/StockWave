@@ -74,6 +74,7 @@ namespace StockWave.Server.Controllers
                     user.FullName,
                     user.Username,
                     user.Email,
+                    user.Role,
                     user.TwoFactorEnabled,
                     user.LoginAlertsEnabled,
                     user.SessionTimeoutMinutes
@@ -89,7 +90,8 @@ namespace StockWave.Server.Controllers
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username)
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, user.Role)
             };
 
             var token = new JwtSecurityToken(

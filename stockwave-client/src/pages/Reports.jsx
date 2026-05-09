@@ -57,7 +57,7 @@ const PieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
 export default function Reports({ exportSignal = 0 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const { run, isRunning } = useActionGuard(500);
-  const lastExportRef = useRef(0);
+  const lastExportRef = useRef(exportSignal);
   const pendingExportRef = useRef(false);
 
   // Real data state

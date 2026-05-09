@@ -24,7 +24,7 @@ namespace StockWave.Server.Controllers
             var outOfStock = await products.CountAsync(p => p.Status == "Out of Stock");
             var inStock = await products.CountAsync(p => p.Status == "In Stock");
 
-            var thisMonth = DateTime.UtcNow.AddDays(-30);
+            var thisMonth = DateTime.UtcNow.Date.AddDays(-DateTime.UtcNow.Day + 1);
             var added = await _db.StockTransactions
                 .Where(t => t.Action == "Added" && t.Timestamp >= thisMonth)
                 .SumAsync(t => (int?)t.Quantity) ?? 0;

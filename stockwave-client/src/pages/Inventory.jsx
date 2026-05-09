@@ -216,7 +216,9 @@ export default function Inventory({ openAddSignal = 0 }) {
   const deleting = isRunning("delete");
   const addingStock = isRunning("add-stock");
   const bulkDeleting = isRunning("bulk-delete");
-  const lastOpenSignalRef = useRef(0);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isAdmin = user.role === "Admin";
+  const lastOpenSignalRef = useRef(openAddSignal);
 
   useEffect(() => { fetchProducts(); }, []);
 
@@ -258,6 +260,7 @@ export default function Inventory({ openAddSignal = 0 }) {
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const handleSort = (col) => {
+    setPage(1);
     if (sortBy === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortBy(col); setSortDir("asc"); }
   };
@@ -274,6 +277,7 @@ export default function Inventory({ openAddSignal = 0 }) {
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         await createProduct({ ...data, performedBy: user.username || "Admin" });
         await fetchProducts();
+        setPage(1); // Reset to page 1 on add
         setModal(null);
       } catch { alert("Failed to add product."); }
     });
@@ -408,7 +412,7 @@ export default function Inventory({ openAddSignal = 0 }) {
                 {statuses.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
-            {selected.length > 0 && (
+            {selected.length > 0 && isAdmin && (
               <button className="btn-bulk-delete" onClick={handleBulkDelete} disabled={bulkDeleting}>
                 <Trash2 size={16} /> Delete {selected.length} selected
               </button>
@@ -447,8 +451,10 @@ export default function Inventory({ openAddSignal = 0 }) {
                     onClick={() => setModal({ type: "add-stock", product: p })}><PlusCircle size={16} /></button>
                   <button className="act-btn edit" title="Edit"
                     onClick={() => setModal({ type: "edit", product: p })}><Edit2 size={16} /></button>
-                  <button className="act-btn del" title="Delete"
-                    onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
+                  {isAdmin && (
+                    <button className="act-btn del" title="Delete"
+                      onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
+                  )}
                 </div>
               </div>
             ))}
@@ -503,8 +509,10 @@ export default function Inventory({ openAddSignal = 0 }) {
                           onClick={() => setModal({ type: "add-stock", product: p })}><PlusCircle size={16} /></button>
                         <button className="act-btn edit" title="Edit"
                           onClick={() => setModal({ type: "edit", product: p })}><Edit2 size={16} /></button>
-                        <button className="act-btn del" title="Delete"
-                          onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
+                        {isAdmin && (
+                          <button className="act-btn del" title="Delete"
+                            onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -83,7 +83,7 @@ export default function Settings() {
       username: user.username || "",
       email: user.email || "",
       phone: user.phoneNumber || "",
-      role: user.role || "Administrator",
+      role: user.role || "Admin",
       bio: user.bio || "",
     };
   });

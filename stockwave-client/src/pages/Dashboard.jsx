@@ -63,14 +63,20 @@ export default function Dashboard({ onLogout }) {
     { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { id: "inventory", icon: Package, label: "Inventory" },
     { id: "reports", icon: BarChart3, label: "Reports" },
-    { id: "users", icon: UsersIcon, label: "Users" },
+    { id: "users", icon: UsersIcon, label: "Users", adminOnly: true },
     { id: "settings", icon: SettingsIcon, label: "Settings" },
   ];
 
+  const isAdmin = user.role === "Admin";
   const { title, sub } = pageTitles[activePage] || pageTitles.dashboard;
 
   const handleVoiceCommand = (command, value) => {
-    if (command === "navigate") setActivePage(value);
+    if (command === "navigate") {
+      const item = navItems.find(i => i.id === value);
+      if (item && (!item.adminOnly || isAdmin)) {
+        setActivePage(value);
+      }
+    }
     if (command === "logout") onLogout();
     if (command === "export_report") {
       setActivePage("reports");
@@ -95,14 +101,15 @@ export default function Dashboard({ onLogout }) {
       return;
     }
     const page = gestureMap[gesture];
-    if (page) setActivePage(page);
+    const item = navItems.find(i => i.id === page);
+    if (page && item && (!item.adminOnly || isAdmin)) setActivePage(page);
   };
 
 
   const renderPage = () => {
     if (activePage === "inventory") return <Inventory openAddSignal={openAddSignal} />;
     if (activePage === "reports") return <Reports exportSignal={exportSignal} />;
-    if (activePage === "users") return <Users />;
+    if (activePage === "users" && isAdmin) return <Users />;
     if (activePage === "settings") return <Settings />;
     return <DashboardHome />;
   };
@@ -124,7 +131,9 @@ export default function Dashboard({ onLogout }) {
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map(item => (
+          {navItems
+            .filter(item => !item.adminOnly || isAdmin)
+            .map(item => (
             <button
               key={item.id}
               className={`nav-item ${activePage === item.id ? "active" : ""}`}

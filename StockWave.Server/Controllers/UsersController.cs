@@ -8,7 +8,7 @@ using StockWave.Server.Models;
 namespace StockWave.Server.Controllers
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     [Route("api/users")]
     public class UsersController : ControllerBase
     {
@@ -29,7 +29,7 @@ namespace StockWave.Server.Controllers
                 .OrderByDescending(u => u.CreatedAt)
                 .Select(u => new {
                     u.Id, u.FullName, u.Username,
-                    u.Email, u.Status,
+                    u.Email, u.Status, u.Role,
                     u.CreatedAt, u.LastLogin,
                     u.PhoneNumber,
                     u.Bio
@@ -52,9 +52,15 @@ namespace StockWave.Server.Controllers
             user.PhoneNumber = dto.PhoneNumber ?? user.PhoneNumber;
             user.Bio = dto.Bio ?? user.Bio;
             user.Status = dto.Status ?? user.Status;
+            
+            // Explicit Role Update
+            if (!string.IsNullOrEmpty(dto.Role))
+            {
+                user.Role = dto.Role;
+            }
 
             await _db.SaveChangesAsync();
-            return Ok(new { message = "User updated." });
+            return Ok(new { message = "User updated.", role = user.Role });
         }
 
         // DELETE /api/users/{id}
@@ -141,7 +147,7 @@ namespace StockWave.Server.Controllers
             if (user == null) return NotFound(new { message = "User not found." });
 
             // Only allow admins to clear logs
-            if (user.Role != "Administrator")
+            if (user.Role != "Admin")
                 return StatusCode(403, new { message = "Only administrators can clear activity logs." });
 
             // In a real implementation, you would clear activity logs from a separate table
@@ -161,7 +167,7 @@ namespace StockWave.Server.Controllers
             if (user == null) return NotFound(new { message = "User not found." });
 
             // Only allow admins to reset system
-            if (user.Role != "Administrator")
+            if (user.Role != "Admin")
                 return StatusCode(403, new { message = "Only administrators can reset the system." });
 
             // Reset all users' security settings to defaults
@@ -180,7 +186,7 @@ namespace StockWave.Server.Controllers
         }
     }
 
-    public record UpdateUserDto(string FullName, string Username, string Email, string? PhoneNumber, string? Bio, string? Status);
+    public record UpdateUserDto(string FullName, string Username, string Email, string? PhoneNumber, string? Bio, string? Status, string? Role);
     public record ChangePasswordDto(string CurrentPassword, string NewPassword);
     public record SecuritySettingsDto(bool EnableTwoFactor, bool LoginAlertsEnabled, int SessionTimeoutMinutes);
 }
