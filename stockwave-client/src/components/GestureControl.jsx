@@ -13,16 +13,12 @@ const GESTURE_LABELS = {
   stop_camera: { icon: CameraOff, label: "Pinky Up", action: "Stop Camera" },
 };
 
-export default function GestureControl({ onGesture }) {
-  const [active, setActive]       = useState(false);
+export default function GestureControl({ onGesture, active = false, onToggle }) {
   const [lastGesture, setLastGesture] = useState(null);
 
   const handleGesture = useCallback((gesture) => {
     setLastGesture(gesture);
     onGesture(gesture);
-    if (gesture === "stop_camera") {
-      setActive(false);
-    }
     setTimeout(() => setLastGesture(null), 1500);
   }, [onGesture]);
 
@@ -33,7 +29,7 @@ export default function GestureControl({ onGesture }) {
 
   const toggle = () => {
     setLastGesture(null);
-    setActive(v => !v);
+    onToggle?.(!active);
   };
 
   return (
@@ -88,7 +84,7 @@ export default function GestureControl({ onGesture }) {
 
           {/* Start / Stop + status */}
           <div className="gesture-actions">
-            <button className="gesture-toggle-btn" onClick={toggle}>
+              <button className="gesture-toggle-btn" onClick={toggle}>
               {active ? "Stop gesture" : "Start gesture"}
             </button>
             {active && <span className="gesture-status">Detecting...</span>}

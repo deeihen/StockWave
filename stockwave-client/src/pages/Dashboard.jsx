@@ -32,22 +32,6 @@ import {
   RefreshCw
 } from "lucide-react";
 
-// ── Stat Card ──────────────────────────────────────
-function StatCard({ icon: Icon, label, value, sub, color, delay }) {
-  return (
-    <div className="stat-card" style={{ animationDelay: delay }}>
-      <div className="stat-icon-wrap" style={{ background: color + "18" }}>
-        <Icon size={24} style={{ color }} />
-      </div>
-      <div className="stat-info">
-        <p className="stat-label">{label}</p>
-        <h3 className="stat-value">{value}</h3>
-        <p className="stat-sub">{sub}</p>
-      </div>
-    </div>
-  );
-}
-
 const pageTitles = {
   dashboard: { title: "Dashboard", sub: "Welcome back — here's what's happening today." },
   inventory: { title: "Inventory", sub: "Manage and track all your products." },
@@ -62,7 +46,8 @@ export default function Dashboard({ onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activePage, setActivePage] = useState("dashboard");
   const [openAddSignal, setOpenAddSignal] = useState(0);
-  const [voiceStartSignal, setVoiceStartSignal] = useState(0);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [gestureActive, setGestureActive] = useState(false);
   const [exportSignal, setExportSignal] = useState(0);
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const avatarLetter = user.fullName?.[0]?.toUpperCase() || "A";
@@ -81,6 +66,14 @@ export default function Dashboard({ onLogout }) {
   const { title, sub } = pageTitles[activePage] || pageTitles.dashboard;
 
   const handleVoiceCommand = (command, value) => {
+    if (command === "voice_off") {
+      setVoiceActive(false);
+      return;
+    }
+    if (command === "gesture_on") {
+      setGestureActive(true);
+      return;
+    }
     if (command === "navigate") {
       const item = navItems.find(i => i.id === value);
       if (item && (!item.adminOnly || isAdmin)) {
@@ -107,7 +100,11 @@ export default function Dashboard({ onLogout }) {
       fist: "settings",
     };
     if (gesture === "voice_start") {
-      setVoiceStartSignal((v) => v + 1);
+      setVoiceActive(true);
+      return;
+    }
+    if (gesture === "stop_camera") {
+      setGestureActive(false);
       return;
     }
     const page = gestureMap[gesture];
@@ -200,8 +197,16 @@ export default function Dashboard({ onLogout }) {
                 <ScanBarcode size={16} /> Quick Scan
               </button>
             </div>
-            <VoiceControl onCommand={handleVoiceCommand} startSignal={voiceStartSignal} />
-            <GestureControl onGesture={handleGestureCommand} />
+            <VoiceControl
+              onCommand={handleVoiceCommand}
+              active={voiceActive}
+              onToggle={setVoiceActive}
+            />
+            <GestureControl
+              onGesture={handleGestureCommand}
+              active={gestureActive}
+              onToggle={setGestureActive}
+            />
             <Notifications />
           </div>
         </header>

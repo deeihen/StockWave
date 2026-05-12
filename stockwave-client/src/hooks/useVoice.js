@@ -4,9 +4,11 @@ import { useEffect, useRef, useState, useCallback } from "react";
 const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 
-export function useVoice({ onCommand, enabled = true }) {
+export function useVoice({ onCommand }) {
   const recogRef = useRef(null);
   const finalizedRef = useRef(false);
+  const transcriptRef = useRef("");
+  const commandDispatchedRef = useRef(false);
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState(null);
@@ -18,13 +20,15 @@ export function useVoice({ onCommand, enabled = true }) {
     
     console.log("Processing voice command:", cmd);
 
-    if (cmd.includes("export"))            onCommand("export_report");
-    else if (cmd.includes("dashboard"))    onCommand("navigate", "dashboard");
-    else if (cmd.includes("inventory"))    onCommand("navigate", "inventory");
-    else if (cmd.includes("product"))      onCommand("add_product");
-    else if (cmd.includes("report"))       onCommand("navigate", "reports");
-    else if (cmd.includes("user"))         onCommand("navigate", "users");
-    else if (cmd.includes("setting"))      onCommand("navigate", "settings");
+    if (cmd.includes("voice off") || cmd.includes("stop voice")) onCommand("voice_off");
+    else if (cmd.includes("gesture on") || cmd.includes("start gesture")) onCommand("gesture_on");
+    else if (cmd.includes("export"))            onCommand("export_report");
+    else if (cmd.includes("dashboard"))         onCommand("navigate", "dashboard");
+    else if (cmd.includes("inventory"))         onCommand("navigate", "inventory");
+    else if (cmd.includes("product"))           onCommand("add_product");
+    else if (cmd.includes("report"))            onCommand("navigate", "reports");
+    else if (cmd.includes("user"))              onCommand("navigate", "users");
+    else if (cmd.includes("setting"))           onCommand("navigate", "settings");
     else if (cmd.includes("logout") || cmd.includes("log out")) onCommand("logout");
   }, [onCommand]);
 
@@ -32,7 +36,7 @@ export function useVoice({ onCommand, enabled = true }) {
     if (recogRef.current) {
       try {
         recogRef.current.stop();
-      } catch (e) {
+      } catch {
         // already stopped
       }
     }
@@ -48,6 +52,8 @@ export function useVoice({ onCommand, enabled = true }) {
 
     setError(null);
     finalizedRef.current = false;
+    commandDispatchedRef.current = false;
+    transcriptRef.current = "";
 
     const recog = new SpeechRecognition();
     recog.lang = "en-US";
@@ -65,34 +71,36 @@ export function useVoice({ onCommand, enabled = true }) {
         .map(r => r[0].transcript)
         .join(" ");
       
+      transcriptRef.current = current;
       setTranscript(current);
 
       if (result.isFinal && !finalizedRef.current) {
         finalizedRef.current = true;
-        // Don't stop immediately to allow short pauses if needed, 
-        // but since continuous is false, the browser usually stops anyway.
+        if (!commandDispatchedRef.current) {
+          commandDispatchedRef.current = true;
+          processCommand(current);
+        }
       }
     };
 
     recog.onend = () => {
       setListening(false);
-      // Retrieve the latest transcript from the ref-like closure
-      // We use a small delay to ensure the last state update is reflected
-      setTimeout(() => {
-        setTranscript(prev => {
-          if (prev) processCommand(prev);
-          return "";
-        });
-      }, 100);
+      const finalTranscript = transcriptRef.current;
+      if (finalTranscript && !commandDispatchedRef.current) {
+        commandDispatchedRef.current = true;
+        processCommand(finalTranscript);
+      }
+      transcriptRef.current = "";
+      setTranscript("");
     };
 
-    recog.onerror = (e) => {
-      console.error("Speech Recognition Error:", e.error);
-      setError(e.error);
+    recog.onerror = (event) => {
+      console.error("Speech Recognition Error:", event.error);
+      setError(event.error);
       setListening(false);
       setTranscript("");
       
-      if (e.error === 'not-allowed') {
+      if (event.error === 'not-allowed') {
         alert("Microphone access was denied. Please enable it in your browser settings.");
       }
     };

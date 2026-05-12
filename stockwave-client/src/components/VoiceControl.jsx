@@ -1,39 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useVoice } from "../hooks/useVoice";
 import "./VoiceControl.css";
 import { Mic, MicOff } from "lucide-react";
 
-export default function VoiceControl({ onCommand, startSignal = 0 }) {
-  const [active, setActive] = useState(false);
-
+export default function VoiceControl({ onCommand, active = false, onToggle }) {
   const { listening, transcript, startListening, stopListening, supported, error } =
-    useVoice({ onCommand, enabled: active });
+    useVoice({ onCommand });
+
+  useEffect(() => {
+    if (!supported) return;
+    if (active && !listening) {
+      startListening();
+    } else if (!active && listening) {
+      stopListening();
+    }
+  }, [active, listening, startListening, stopListening, supported]);
 
   if (!supported) return null;
 
-  // Handle signal from GestureControl
-  useEffect(() => {
-    if (startSignal > 0 && !listening) {
-      startListening();
-      setActive(true);
-    }
-  }, [startSignal, listening, startListening]);
-
-  // Sync internal active state with hook's listening state
-  useEffect(() => {
-    if (active && !listening && !transcript) {
-      setActive(false);
-    }
-  }, [active, listening, transcript]);
-
   const toggle = () => {
-    if (listening) {
-      stopListening();
-      setActive(false);
-    } else {
-      startListening();
-      setActive(true);
-    }
+    onToggle?.(!active);
   };
 
   return (

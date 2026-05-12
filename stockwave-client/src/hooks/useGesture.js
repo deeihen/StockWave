@@ -1,7 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 
-const GESTURE_COOLDOWN = 500; // ms between gestures
-const GESTURE_REPEAT_MS = 1200; // allow same gesture repeat if held
+const GESTURE_COOLDOWN = 800; // ms between gestures
+const GESTURE_REPEAT_MS = 1500; // allow same gesture repeat if held
+const FRAMES_REQUIRED = 4; // consecutive frames required before firing
 
 export function useGesture({ onGesture, enabled = true }) {
   const videoRef = useRef(null);
@@ -10,11 +11,31 @@ export function useGesture({ onGesture, enabled = true }) {
   const cameraRef = useRef(null);
   const lastGestureTime = useRef(0);
   const lastGestureRef = useRef(null);
+  const pendingGesture = useRef(null);
+  const gestureFrameCount = useRef(0);
   const [cameraError, setCameraError] = useState(null);
 
   const detectGesture = useCallback((landmarks) => {
-    const now = Date.now();
-    if (now - lastGestureTime.current < GESTURE_COOLDOWN) return;
+    const fireGesture = (name) => {
+      const now = Date.now();
+      if (now - lastGestureTime.current < GESTURE_COOLDOWN) return;
+      if (lastGestureRef.current === name && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
+
+      if (pendingGesture.current !== name) {
+        pendingGesture.current = name;
+        gestureFrameCount.current = 1;
+        return;
+      }
+
+      gestureFrameCount.current += 1;
+      if (gestureFrameCount.current < FRAMES_REQUIRED) return;
+
+      lastGestureTime.current = now;
+      lastGestureRef.current = name;
+      pendingGesture.current = null;
+      gestureFrameCount.current = 0;
+      onGesture(name);
+    };
 
     // Finger tips and base indices
     const thumbTip = landmarks[4];
@@ -34,71 +55,71 @@ export function useGesture({ onGesture, enabled = true }) {
     const ringUp = ringTip.y < ringBase.y;
     const pinkyUp = pinkyTip.y < pinkyBase.y;
 
-    // Thumb extended to the side
-    const thumbUp = thumbTip.x < landmarks[3].x;
+    // Geometric extension/curl checks are orientation-agnostic.
+    const wrist = landmarks[0];
+    const middleMcp = landmarks[9];
+    const thumbMcp = landmarks[2];
+
+    const palmSize = Math.hypot(wrist.x - middleMcp.x, wrist.y - middleMcp.y);
+    const thumbLength = Math.hypot(thumbTip.x - thumbMcp.x, thumbTip.y - thumbMcp.y);
+    const thumbExtended = thumbLength > palmSize * 0.4;
+
+    const isFingerCurled = (tip, pip) => {
+      const tipToWrist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+      const pipToWrist = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
+      return tipToWrist < pipToWrist;
+    };
+
+    const indexCurled = isFingerCurled(indexTip, indexBase);
+    const middleCurled = isFingerCurled(middleTip, middleBase);
+    const ringCurled = isFingerCurled(ringTip, ringBase);
+    const pinkyCurled = isFingerCurled(pinkyTip, pinkyBase);
 
     // ── OPEN PALM (all 4 fingers up) → Confirm / Navigate
     if (indexUp && middleUp && ringUp && pinkyUp) {
-      if (lastGestureRef.current === "open_palm" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
-      lastGestureTime.current = now;
-      lastGestureRef.current = "open_palm";
-      onGesture("open_palm");
+      fireGesture("open_palm");
       return;
     }
 
     // ── THREE FINGERS (index+middle+ring) → Start Voice
     if (indexUp && middleUp && ringUp && !pinkyUp) {
-      if (lastGestureRef.current === "voice_start" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
-      lastGestureTime.current = now;
-      lastGestureRef.current = "voice_start";
-      onGesture("voice_start");
+      fireGesture("voice_start");
       return;
     }
 
     // ── PINKY UP (only pinky) → Stop Camera
     if (!indexUp && !middleUp && !ringUp && pinkyUp) {
-      if (lastGestureRef.current === "stop_camera" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
-      lastGestureTime.current = now;
-      lastGestureRef.current = "stop_camera";
-      onGesture("stop_camera");
+      fireGesture("stop_camera");
+      return;
+    }
+
+    // ── THUMBS UP → Confirm / Add
+    if (thumbExtended && indexCurled && middleCurled && ringCurled && pinkyCurled) {
+      fireGesture("thumbs_up");
       return;
     }
 
     // ── FIST (all fingers down) → Cancel
-    if (!indexUp && !middleUp && !ringUp && !pinkyUp) {
-      if (lastGestureRef.current === "fist" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
-      lastGestureTime.current = now;
-      lastGestureRef.current = "fist";
-      onGesture("fist");
+    if (indexCurled && middleCurled && ringCurled && pinkyCurled && !thumbExtended) {
+      fireGesture("fist");
       return;
     }
 
     // ── POINT UP (only index up) → Scroll up / Previous
     if (indexUp && !middleUp && !ringUp && !pinkyUp) {
-      if (lastGestureRef.current === "point_up" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
-      lastGestureTime.current = now;
-      lastGestureRef.current = "point_up";
-      onGesture("point_up");
+      fireGesture("point_up");
       return;
     }
 
     // ── PEACE / V SIGN (index + middle up) → Next page
     if (indexUp && middleUp && !ringUp && !pinkyUp) {
-      if (lastGestureRef.current === "peace" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
-      lastGestureTime.current = now;
-      lastGestureRef.current = "peace";
-      onGesture("peace");
+      fireGesture("peace");
       return;
     }
 
-    // ── THUMBS UP → Confirm / Add
-    if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) {
-      if (lastGestureRef.current === "thumbs_up" && now - lastGestureTime.current < GESTURE_REPEAT_MS) return;
-      lastGestureTime.current = now;
-      lastGestureRef.current = "thumbs_up";
-      onGesture("thumbs_up");
-      return;
-    }
+    // Reset pending confirmation when no known gesture is matched.
+    pendingGesture.current = null;
+    gestureFrameCount.current = 0;
   }, [onGesture]);
 
   useEffect(() => {
@@ -130,10 +151,10 @@ export function useGesture({ onGesture, enabled = true }) {
 
         // Load Mediapipe Hands and Camera from CDN
         await loadScript(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"
         );
         await loadScript(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"
         );
 
         const Hands = window.Hands;
@@ -219,7 +240,12 @@ export function useGesture({ onGesture, enabled = true }) {
           if (results.multiHandLandmarks?.length > 0) {
             detectGesture(results.multiHandLandmarks[0]);
           } else {
-            lastGestureRef.current = null;
+            pendingGesture.current = null;
+            gestureFrameCount.current = 0;
+            // Do not reset lastGestureRef here. Keeping the last gesture
+            // allows the repeat guard to suppress re-entry across brief
+            // no-detection frames (e.g. quick open/close where a frame
+            // might be missed). lastGestureTime still governs timing.
           }
         });
 
