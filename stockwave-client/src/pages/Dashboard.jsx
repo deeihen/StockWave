@@ -7,6 +7,7 @@ import Inventory from "./Inventory";
 import Reports from "./Reports";
 import Users from "./Users";
 import Settings from "./Settings";
+import Pos from "./Pos";
 import { getReportSummary, getRecentActivity, getLowStock } from "../api/stockwaveApi";
 import {
   LayoutDashboard,
@@ -19,9 +20,16 @@ import {
   ChevronRight,
   AlertTriangle,
   Download,
-  PlusCircle,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Activity,
+  Zap,
+  Sparkles,
+  Cpu,
+  CreditCard,
+  ScanBarcode,
+  ShieldCheck,
+  RefreshCw
 } from "lucide-react";
 
 // ── Stat Card ──────────────────────────────────────
@@ -43,6 +51,7 @@ function StatCard({ icon: Icon, label, value, sub, color, delay }) {
 const pageTitles = {
   dashboard: { title: "Dashboard", sub: "Welcome back — here's what's happening today." },
   inventory: { title: "Inventory", sub: "Manage and track all your products." },
+  pos: { title: "Point of Sale", sub: "Fast checkout with live inventory sync." },
   reports: { title: "Reports", sub: "View analytics and stock reports." },
   users: { title: "Users", sub: "Manage system users and roles." },
   settings: { title: "Settings", sub: "Configure your preferences." },
@@ -62,6 +71,7 @@ export default function Dashboard({ onLogout }) {
   const navItems = [
     { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { id: "inventory", icon: Package, label: "Inventory" },
+    { id: "pos", icon: CreditCard, label: "POS" },
     { id: "reports", icon: BarChart3, label: "Reports" },
     { id: "users", icon: UsersIcon, label: "Users", adminOnly: true },
     { id: "settings", icon: SettingsIcon, label: "Settings" },
@@ -108,6 +118,7 @@ export default function Dashboard({ onLogout }) {
 
   const renderPage = () => {
     if (activePage === "inventory") return <Inventory openAddSignal={openAddSignal} />;
+    if (activePage === "pos") return <Pos />;
     if (activePage === "reports") return <Reports exportSignal={exportSignal} />;
     if (activePage === "users" && isAdmin) return <Users />;
     if (activePage === "settings") return <Settings />;
@@ -174,13 +185,24 @@ export default function Dashboard({ onLogout }) {
           <div className="header-left">
             <h1 className="page-title">{title}</h1>
             <p className="page-sub">{sub}</p>
+            <div className="header-meta">
+              <span className="status-pill"><span className="pulse-dot" />Live Ops</span>
+              <span className="status-pill muted"><Activity size={14} /> 32 events/min</span>
+              <span className="status-pill ghost"><ShieldCheck size={14} /> Secure</span>
+            </div>
           </div>
           <div className="header-right">
+            <div className="header-quick">
+              <button className="header-action">
+                <RefreshCw size={16} /> Sync
+              </button>
+              <button className="header-action primary">
+                <ScanBarcode size={16} /> Quick Scan
+              </button>
+            </div>
             <VoiceControl onCommand={handleVoiceCommand} startSignal={voiceStartSignal} />
             <GestureControl onGesture={handleGestureCommand} />
-            <button className="notif-btn">
-              <Notifications />
-            </button>
+            <Notifications />
           </div>
         </header>
 
@@ -240,93 +262,212 @@ function DashboardHome() {
     );
   }
 
+  const addedCount = activity.filter(a => a.action === "Added").length;
+  const removedCount = activity.filter(a => a.action !== "Added").length;
   return (
     <div className="dash-content">
-      {/* ── STAT CARDS ── */}
-      <div className="stats-grid">
-        <StatCard icon={Package} label="Total Products"
-          value={summary?.totalProducts ?? "—"}
-          sub="In database" color="#059669" delay="0ms" />
-        <StatCard icon={AlertTriangle} label="Low Stock"
-          value={summary?.lowStock ?? "—"}
-          sub="Needs restocking" color="#f59e0b" delay="80ms" />
-        <StatCard icon={TrendingUp} label="Items Added"
-          value={summary?.itemsAddedThisMonth ?? "—"}
-          sub="This month" color="#3b82f6" delay="160ms" />
-        <StatCard icon={TrendingDown} label="Items Removed"
-          value={summary?.itemsRemovedThisMonth ?? "—"}
-          sub="This month" color="#8b5cf6" delay="240ms" />
-      </div>
-
-      {/* ── BOTTOM ROW ── */}
-      <div className="bottom-row">
-        {/* Recent Activity */}
-        <div className="table-card wide">
-          <div className="table-card-header">
-            <h3 className="chart-title">Recent Activity</h3>
+      <div className="overview-grid">
+        <div className="overview-hero">
+          <div className="overview-header">
+            <div>
+              <p className="eyebrow">Operations Overview</p>
+              <h2 className="overview-title">WaveStock Command Center</h2>
+              <p className="overview-sub">Unified signal across inventory, sales, and staff movement.</p>
+            </div>
+            <div className="hero-badges">
+              <span className="hero-badge live"><span className="pulse-dot" /> Live</span>
+              <span className="hero-badge"><Cpu size={14} /> AI Assist</span>
+            </div>
           </div>
-          {activity.length === 0 ? (
-            <p style={{ color: "#9ca3af", fontSize: 13, padding: "12px 0" }}>
-              No activity yet. Add products to see logs here.
-            </p>
-          ) : (
-            <table className="activity-table">
-              <thead>
-                <tr>
-                  <th>Action</th><th>Item</th><th>Qty</th><th>By</th><th>Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activity.slice(0, 5).map(a => (
-                  <tr key={a.id}>
-                    <td>
-                      <span className={`action-badge ${a.action === "Added" ? "in" : "out"}`}>
-                        {a.action}
-                      </span>
-                    </td>
-                    <td className="item-name">{a.item}</td>
-                    <td className="qty-cell">{a.quantity}</td>
-                    <td className="user-cell">{a.performedBy}</td>
-                    <td className="time-cell">
-                      {new Date(a.timestamp).toLocaleString("en-PH")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+
+          <div className="stat-strip">
+            <div className="stat-compact">
+              <div className="stat-compact-top">
+                <Package size={16} />
+                <span>Total Products</span>
+              </div>
+              <div className="stat-compact-value">{summary?.totalProducts ?? "—"}</div>
+              <div className="mini-chart">
+                <span style={{ width: "68%" }} />
+              </div>
+            </div>
+            <div className="stat-compact">
+              <div className="stat-compact-top warn">
+                <AlertTriangle size={16} />
+                <span>Low Stock</span>
+              </div>
+              <div className="stat-compact-value">{summary?.lowStock ?? "—"}</div>
+              <div className="mini-chart warn">
+                <span style={{ width: `${Math.min((summary?.lowStock || 0) * 12, 90)}%` }} />
+              </div>
+            </div>
+            <div className="stat-compact">
+              <div className="stat-compact-top up">
+                <TrendingUp size={16} />
+                <span>Items Added</span>
+              </div>
+              <div className="stat-compact-value">{summary?.itemsAddedThisMonth ?? "—"}</div>
+              <div className="mini-chart up">
+                <span style={{ width: "78%" }} />
+              </div>
+            </div>
+            <div className="stat-compact">
+              <div className="stat-compact-top down">
+                <TrendingDown size={16} />
+                <span>Items Removed</span>
+              </div>
+              <div className="stat-compact-value">{summary?.itemsRemovedThisMonth ?? "—"}</div>
+              <div className="mini-chart down">
+                <span style={{ width: "58%" }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-split">
+            <div className="movement-card">
+              <div className="movement-header">
+                <h3>Inventory Movement</h3>
+                <span className="movement-badge">24H</span>
+              </div>
+              <div className="movement-bars">
+                <div className="movement-bar">
+                  <span>Inbound</span>
+                  <div className="bar-track"><div className="bar-fill in" style={{ width: `${Math.min(addedCount * 14 + 22, 95)}%` }} /></div>
+                  <strong>{addedCount}</strong>
+                </div>
+                <div className="movement-bar">
+                  <span>Outbound</span>
+                  <div className="bar-track"><div className="bar-fill out" style={{ width: `${Math.min(removedCount * 14 + 18, 95)}%` }} /></div>
+                  <strong>{removedCount}</strong>
+                </div>
+              </div>
+              <p className="movement-sub">Trend syncs with reports and POS updates.</p>
+            </div>
+
+            <div className="warehouse-card">
+              <div className="warehouse-header">
+                <h3>Warehouse Activity</h3>
+                <span className="warehouse-live"><Zap size={14} /> Active</span>
+              </div>
+              <div className="warehouse-grid">
+                <div>
+                  <p>Dock Utilization</p>
+                  <h4>78%</h4>
+                  <div className="pulse-line"><span /></div>
+                </div>
+                <div>
+                  <p>Pick Rate</p>
+                  <h4>312/hr</h4>
+                  <div className="pulse-line purple"><span /></div>
+                </div>
+                <div>
+                  <p>Replenishment</p>
+                  <h4>12 queued</h4>
+                  <div className="pulse-line amber"><span /></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Low Stock Alerts */}
-        <div className="table-card">
-          <div className="table-card-header">
-            <h3 className="chart-title">Low Stock Alerts</h3>
-            <span className="alert-count">{lowStock.length}</span>
+        <div className="overview-side">
+          <div className="side-panel">
+            <div className="side-panel-header">
+              <h3>Live Activity Feed</h3>
+              <span className="side-tag">Realtime</span>
+            </div>
+            <div className="feed-list">
+              {activity.length === 0 ? (
+                <p className="empty-note">No live activity yet.</p>
+              ) : (
+                activity.slice(0, 6).map(a => (
+                  <div key={a.id} className="feed-item">
+                    <span className={`feed-pill ${a.action === "Added" ? "in" : "out"}`}>
+                      {a.action}
+                    </span>
+                    <div>
+                      <p className="feed-title">{a.item}</p>
+                      <p className="feed-meta">{a.performedBy} • {a.quantity} units</p>
+                    </div>
+                    <span className="feed-time">{new Date(a.timestamp).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          {lowStock.length === 0 ? (
-            <p style={{ color: "#9ca3af", fontSize: 13, padding: "12px 0" }}>
-              All items are well stocked!
-            </p>
-          ) : (
-            <div className="low-stock-list">
-              {lowStock.slice(0, 4).map((item, i) => (
-                <div key={i} className="low-stock-item">
-                  <div className="low-stock-top">
-                    <span className="low-stock-name">{item.name}</span>
-                    <span className="low-stock-qty">{item.stock} units</span>
+
+          <div className="side-panel alerts">
+            <div className="side-panel-header">
+              <h3>Low Stock Alerts</h3>
+              <span className="alert-count">{lowStock.length}</span>
+            </div>
+            {lowStock.length === 0 ? (
+              <p className="empty-note">All inventory levels are healthy.</p>
+            ) : (
+              <div className="alert-list">
+                {lowStock.slice(0, 4).map((item, i) => (
+                  <div key={i} className="alert-item">
+                    <div>
+                      <p className="alert-name">{item.name}</p>
+                      <p className="alert-sub">{item.stock} units remaining</p>
+                    </div>
+                    <div className="alert-meter">
+                      <div className="alert-fill" style={{ width: `${Math.min(item.stock * 10, 100)}%` }} />
+                    </div>
                   </div>
-                  <div className="low-stock-bar-bg">
-                    <div className="low-stock-bar-fill"
-                      style={{
-                        width: `${Math.min(item.stock * 10, 100)}%`,
-                        background: item.stock === 0 ? "#ef4444" : "#d97706"
-                      }} />
+                ))}
+              </div>
+            )}
+            <button className="alert-action"><Download size={14} /> Generate restock list</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="dash-bottom-grid">
+        <div className="timeline-panel">
+          <div className="panel-header">
+            <h3>Recent Transactions</h3>
+            <span className="side-tag">Timeline</span>
+          </div>
+          <div className="timeline">
+            {(activity.length ? activity : [{ id: "0", item: "POS Sync", action: "Added", quantity: 0, performedBy: "System", timestamp: new Date().toISOString() }])
+              .slice(0, 5)
+              .map((a, i) => (
+                <div key={a.id || i} className="timeline-item">
+                  <div className={`timeline-dot ${a.action === "Added" ? "in" : "out"}`} />
+                  <div>
+                    <p className="timeline-title">{a.item}</p>
+                    <p className="timeline-meta">{a.action} • {a.quantity} units • {a.performedBy}</p>
                   </div>
-                  <p className="low-stock-hint">{item.status}</p>
+                  <span className="timeline-time">{new Date(a.timestamp).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</span>
                 </div>
               ))}
+          </div>
+        </div>
+
+        <div className="assistant-panel">
+          <div className="panel-header">
+            <h3>AI Ops Assistant</h3>
+            <span className="side-tag">On</span>
+          </div>
+          <div className="assistant-body">
+            <div className="assistant-message">
+              <Sparkles size={16} />
+              <p>Low stock on "Display Hubs". I drafted a restock order.</p>
             </div>
-          )}
+            <div className="assistant-suggest">
+              <button>View Draft</button>
+              <button>Auto-send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="ai-float">
+        <div className="ai-avatar"><Sparkles size={16} /></div>
+        <div>
+          <p>Need a quick insight?</p>
+          <button>Ask WaveAI</button>
         </div>
       </div>
     </div>

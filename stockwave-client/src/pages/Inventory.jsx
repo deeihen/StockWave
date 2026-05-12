@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import "./Inventory.css";
 import { getProducts, createProduct, updateProduct, deleteProduct } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
@@ -210,6 +210,7 @@ export default function Inventory({ openAddSignal = 0 }) {
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
+  const [expandedId, setExpandedId] = useState(null);
   const PER_PAGE = 8;
   const { run, isRunning } = useActionGuard(500);
   const saving = isRunning("add") || isRunning("edit");
@@ -343,6 +344,10 @@ export default function Inventory({ openAddSignal = 0 }) {
     setSelected(allSelected ? selected.filter(id => !pageIds.includes(id)) : [...new Set([...selected, ...pageIds])]);
   };
 
+  const toggleExpand = (id) => {
+    setExpandedId(prev => prev === id ? null : id);
+  };
+
   const totalItems = products.length;
   const inStock = products.filter(p => p.status === "In Stock").length;
   const lowStock = products.filter(p => p.status === "Low Stock").length;
@@ -398,8 +403,8 @@ export default function Inventory({ openAddSignal = 0 }) {
 
           <div className="inv-filters">
             <div className="search-box">
-              <Search size={16} color="#aaa" />
-              <input className="search-inp" placeholder="Search products..."
+              <Search size={16} color="#7b8aa3" />
+              <input className="search-inp" placeholder="Search products, categories, or SKUs"
                 value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
             </div>
             <div className="filter-group">
@@ -411,6 +416,11 @@ export default function Inventory({ openAddSignal = 0 }) {
                 onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
                 {statuses.map(s => <option key={s}>{s}</option>)}
               </select>
+            </div>
+            <div className="filter-actions">
+              <button className="filter-chip"><Package size={14} /> Warehouses</button>
+              <button className="filter-chip"><AlertCircle size={14} /> Exceptions</button>
+              <button className="filter-chip">Advanced Filters</button>
             </div>
             {selected.length > 0 && isAdmin && (
               <button className="btn-bulk-delete" onClick={handleBulkDelete} disabled={bulkDeleting}>
@@ -469,6 +479,7 @@ export default function Inventory({ openAddSignal = 0 }) {
                       checked={paginated.length > 0 && paginated.every(p => selected.includes(p.id))}
                       onChange={toggleAll} />
                   </th>
+                  <th></th>
                   <th onClick={() => handleSort("name")}>Product <SortIcon col="name" /></th>
                   <th onClick={() => handleSort("category")}>Category <SortIcon col="category" /></th>
                   <th onClick={() => handleSort("stock")}>Stock <SortIcon col="stock" /></th>
@@ -481,7 +492,7 @@ export default function Inventory({ openAddSignal = 0 }) {
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="empty-row">
+                    <td colSpan="9" className="empty-row">
                       <div className="empty-state">
                         <Package size={48} color="#e5e7eb" />
                         <p>No products found. Click "Add Product" to get started.</p>
@@ -489,33 +500,72 @@ export default function Inventory({ openAddSignal = 0 }) {
                     </td>
                   </tr>
                 ) : paginated.map(p => (
-                  <tr key={p.id} className={selected.includes(p.id) ? "row-selected" : ""}>
-                    <td className="td-check">
-                      <input type="checkbox"
-                        checked={selected.includes(p.id)}
-                        onChange={() => toggleSelect(p.id)} />
-                    </td>
-                    <td className="td-name">{p.name}</td>
-                    <td><span className="cat-tag">{p.category}</span></td>
-                    <td className={`td-stock ${p.stock === 0 ? "zero" : p.stock <= 10 ? "low" : ""}`}>
-                      {p.stock}
-                    </td>
-                    <td className="td-price">₱{p.price.toLocaleString()}</td>
-                    <td className="td-unit">{p.unit}</td>
-                    <td><StatusBadge status={p.status} /></td>
-                    <td>
-                      <div className="action-btns">
-                        <button className="act-btn add" title="Add stock"
-                          onClick={() => setModal({ type: "add-stock", product: p })}><PlusCircle size={16} /></button>
-                        <button className="act-btn edit" title="Edit"
-                          onClick={() => setModal({ type: "edit", product: p })}><Edit2 size={16} /></button>
-                        {isAdmin && (
-                          <button className="act-btn del" title="Delete"
-                            onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                  <Fragment key={p.id}>
+                    <tr className={selected.includes(p.id) ? "row-selected" : ""}>
+                      <td className="td-check">
+                        <input type="checkbox"
+                          checked={selected.includes(p.id)}
+                          onChange={() => toggleSelect(p.id)} />
+                      </td>
+                      <td className="td-expand">
+                        <button className="expand-btn" onClick={() => toggleExpand(p.id)}>
+                          {expandedId === p.id ? "−" : "+"}
+                        </button>
+                      </td>
+                      <td className="td-name">
+                        <div className="prod-cell">
+                          <div className="prod-thumb">{p.name[0]}</div>
+                          <div>
+                            <p className="prod-name">{p.name}</p>
+                            <p className="prod-meta">SKU-{String(p.id).slice(0, 6)}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className="cat-tag">{p.category}</span></td>
+                      <td className={`td-stock ${p.stock === 0 ? "zero" : p.stock <= 10 ? "low" : ""}`}>
+                        {p.stock}
+                      </td>
+                      <td className="td-price">₱{p.price.toLocaleString()}</td>
+                      <td className="td-unit">{p.unit}</td>
+                      <td><StatusBadge status={p.status} /></td>
+                      <td>
+                        <div className="action-btns">
+                          <button className="act-btn add" title="Add stock"
+                            onClick={() => setModal({ type: "add-stock", product: p })}><PlusCircle size={16} /></button>
+                          <button className="act-btn edit" title="Edit"
+                            onClick={() => setModal({ type: "edit", product: p })}><Edit2 size={16} /></button>
+                          {isAdmin && (
+                            <button className="act-btn del" title="Delete"
+                              onClick={() => setModal({ type: "delete", product: p })}><Trash2 size={16} /></button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedId === p.id && (
+                      <tr className="expand-row">
+                        <td colSpan="9">
+                          <div className="expand-panel">
+                            <div>
+                              <p className="expand-label">Stock Value</p>
+                              <p className="expand-value">₱{(p.price * p.stock).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="expand-label">Reorder Point</p>
+                              <p className="expand-value">{p.stock <= 10 ? "Triggered" : "Normal"}</p>
+                            </div>
+                            <div>
+                              <p className="expand-label">Last Movement</p>
+                              <p className="expand-value">{p.stock <= 10 ? "Restock soon" : "Stable"}</p>
+                            </div>
+                            <div className="expand-actions">
+                              <button className="expand-btn-alt">Open POS</button>
+                              <button className="expand-btn-alt">Create transfer</button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

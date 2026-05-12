@@ -244,10 +244,10 @@ export default function Reports({ exportSignal = 0 }) {
                     data={stockMovement}
                     margin={{ top: 5, right: 5, left: 10, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc" }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(34, 211, 238, 0.08)" }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
                     <Bar dataKey="added" name="Added" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={24} />
                     <Bar dataKey="removed" name="Removed" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={24} />
