@@ -27,6 +27,12 @@ const cartItems = [
   { id: 3, name: "POS Tablet Stand", qty: 1, price: 2140 }
 ];
 
+const activity = [
+  { id: 1, label: "Invoice #1293", time: "2 min ago", amount: 12480, status: "Paid" },
+  { id: 2, label: "Refund #1291", time: "18 min ago", amount: -840, status: "Approved" },
+  { id: 3, label: "Invoice #1289", time: "32 min ago", amount: 6420, status: "Paid" }
+];
+
 export default function Pos() {
   const [search, setSearch] = useState("");
 
@@ -101,6 +107,34 @@ export default function Pos() {
         </section>
 
         <aside className="pos-side">
+          <div className="cashier-card">
+            <div className="cashier-avatar">LS</div>
+            <div>
+              <p className="cashier-name">Lana Santos</p>
+              <p className="cashier-shift">Morning Shift • 08:00 - 16:00</p>
+            </div>
+            <span className="cashier-status">On Duty</span>
+          </div>
+
+          <div className="pos-activity">
+            <div className="pos-activity-header">
+              <h4>Transaction Activity</h4>
+              <span>Today</span>
+            </div>
+            {activity.map((item) => (
+              <div key={item.id} className="pos-activity-row">
+                <div>
+                  <p>{item.label}</p>
+                  <span>{item.time}</span>
+                </div>
+                <div className="pos-activity-meta">
+                  <strong>{item.amount < 0 ? "-" : ""}₱{Math.abs(item.amount).toLocaleString()}</strong>
+                  <span className={item.status === "Paid" ? "pill paid" : "pill refund"}>{item.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="pos-cart">
             <p className="cart-title">Live Cart</p>
             {cartItems.map((item) => (
@@ -147,6 +181,12 @@ export default function Pos() {
             </div>
           </div>
         </aside>
+      </div>
+
+      <div className="pos-quick-actions">
+        <button><Plus size={14} /> New Order</button>
+        <button><ScanBarcode size={14} /> Scan Item</button>
+        <button><CreditCard size={14} /> Charge</button>
       </div>
     </div>
   );
