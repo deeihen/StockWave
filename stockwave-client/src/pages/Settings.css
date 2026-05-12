@@ -1,6 +1,6 @@
 .set-root {
   padding: 24px;
-  max-width: 1200px;
+  max-width: 1300px;
   margin: 0 auto;
 }
 
@@ -17,15 +17,15 @@
 
 .saved-toast {
   padding: 8px 16px;
-  background: #dcfce7;
-  color: #065f46;
+  background: rgba(34, 211, 238, 0.18);
+  color: var(--text-main);
   border-radius: 99px;
   font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-soft);
   animation: slideDown 0.3s ease;
 }
 
@@ -62,8 +62,8 @@
   text-align: left;
 }
 
-.set-tab:hover { background: var(--bg-sub); color: var(--text-main); }
-.set-tab.active { background: var(--primary-light); color: var(--primary); }
+.set-tab:hover { background: rgba(148, 163, 184, 0.12); color: var(--text-main); }
+.set-tab.active { background: rgba(34, 211, 238, 0.16); color: var(--text-main); }
 .set-tab-icon { display: flex; align-items: center; justify-content: center; opacity: 0.7; }
 .set-tab.active .set-tab-icon { opacity: 1; }
 
@@ -75,16 +75,16 @@
 }
 
 .settings-section {
-  background: white;
-  border: 1px solid var(--border);
+  background: rgba(18, 26, 35, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-soft);
 }
 
 .section-header {
   padding: 24px 32px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .section-title-wrap {
@@ -107,7 +107,7 @@
   gap: 20px;
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 1px solid var(--bg-sub);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .settings-avatar-large {
@@ -164,22 +164,23 @@
   width: 100%;
   height: 42px;
   padding: 0 12px;
-  background: var(--bg-sub);
-  border: 1.5px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 10px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
   transition: all 0.2s;
   outline: none;
+  color: var(--text-main);
 }
 
 .input-with-icon .form-input { padding-left: 38px; }
 
 .form-input:focus {
-  border-color: var(--primary);
-  background: white;
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
 }
 
 .form-textarea { height: 100px; padding-top: 12px; resize: none; }
@@ -195,8 +196,8 @@
 .btn-save {
   height: 40px;
   padding: 0 20px;
-  background: var(--primary);
-  color: white;
+  background: linear-gradient(120deg, var(--primary), var(--accent-purple));
+  color: #041019;
   border: none;
   border-radius: 10px;
   font-weight: 700;
@@ -205,14 +206,14 @@
   transition: all 0.2s;
 }
 
-.btn-save:hover { background: var(--primary-dark); transform: translateY(-1px); }
+.btn-save:hover { transform: translateY(-1px); }
 
 .btn-save-alt {
   height: 36px;
   padding: 0 16px;
-  background: var(--text-main);
-  color: white;
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 8px;
   font-weight: 700;
   font-size: 12px;
@@ -226,7 +227,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 0;
-  border-bottom: 1px solid var(--bg-sub);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .field-row:last-child { border-bottom: none; }
@@ -237,7 +238,7 @@
 .toggle-switch {
   width: 44px;
   height: 22px;
-  background: #e2e8f0;
+  background: rgba(148, 163, 184, 0.3);
   border-radius: 99px;
   border: none;
   position: relative;
@@ -245,7 +246,7 @@
   transition: background 0.3s;
 }
 
-.toggle-switch.on { background: var(--primary); }
+.toggle-switch.on { background: rgba(34, 211, 238, 0.6); }
 
 .toggle-thumb {
   position: absolute;
@@ -253,10 +254,10 @@
   left: 3px;
   width: 16px;
   height: 16px;
-  background: white;
+  background: #0b1118;
   border-radius: 50%;
   transition: transform 0.3s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .toggle-switch.on .toggle-thumb { transform: translateX(22px); }

@@ -54,6 +54,11 @@ export default function VoiceControl({ onCommand, startSignal = 0 }) {
               {listening && <div className="mic-pulse" />}
               <Mic size={24} color={listening ? "var(--primary)" : "#94a3b8"} />
             </div>
+            <div className={`voice-wave ${listening ? "active" : ""}`}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <span key={i} />
+              ))}
+            </div>
             <span className="listening-text">
               {listening ? "Listening" : "Processing..."}
             </span>
