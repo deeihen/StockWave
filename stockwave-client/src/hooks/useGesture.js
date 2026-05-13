@@ -2,20 +2,57 @@ import { useEffect, useRef, useCallback, useState } from "react";
 
 const GESTURE_COOLDOWN = 800; // ms between gestures
 const GESTURE_REPEAT_MS = 1500; // allow same gesture repeat if held
-const FRAMES_REQUIRED = 4; // consecutive frames required before firing
+const FRAMES_REQUIRED = 6; // consecutive frames required before firing
+const TRANSITION_HOLD_MS = 600; // hold duration required after gesture switch
 
 export function useGesture({ onGesture, enabled = true }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const handsRef = useRef(null);
   const cameraRef = useRef(null);
+  const onGestureRef = useRef(onGesture);
   const lastGestureTime = useRef(0);
   const lastGestureRef = useRef(null);
   const pendingGesture = useRef(null);
   const gestureFrameCount = useRef(0);
+  const gestureChangedAt = useRef(0);
   const [cameraError, setCameraError] = useState(null);
 
+  useEffect(() => {
+    onGestureRef.current = onGesture;
+  }, [onGesture]);
+
   const detectGesture = useCallback((landmarks) => {
+    const wrist = landmarks[0];
+    const middleMcp = landmarks[9];
+    const thumbMcp = landmarks[2];
+    const pinkyMcp = landmarks[17];
+
+    // Palm width: distance between thumb MCP and pinky MCP.
+    const palmWidth = Math.hypot(thumbMcp.x - pinkyMcp.x, thumbMcp.y - pinkyMcp.y);
+    // Palm height: wrist to middle MCP.
+    const palmSize = Math.hypot(wrist.x - middleMcp.x, wrist.y - middleMcp.y);
+
+    // Reject hands that are too small or too partial to classify reliably.
+    if (palmSize < 0.08 || palmWidth < 0.06) {
+      pendingGesture.current = null;
+      gestureFrameCount.current = 0;
+      gestureChangedAt.current = 0;
+      return;
+    }
+
+    // Reject suspiciously clustered landmark sets from edge/partial detections.
+    const xs = landmarks.map((l) => l.x);
+    const ys = landmarks.map((l) => l.y);
+    const bboxW = Math.max(...xs) - Math.min(...xs);
+    const bboxH = Math.max(...ys) - Math.min(...ys);
+    if (bboxW < 0.1 || bboxH < 0.1) {
+      pendingGesture.current = null;
+      gestureFrameCount.current = 0;
+      gestureChangedAt.current = 0;
+      return;
+    }
+
     const fireGesture = (name) => {
       const now = Date.now();
       if (now - lastGestureTime.current < GESTURE_COOLDOWN) return;
@@ -24,17 +61,20 @@ export function useGesture({ onGesture, enabled = true }) {
       if (pendingGesture.current !== name) {
         pendingGesture.current = name;
         gestureFrameCount.current = 1;
+        gestureChangedAt.current = now;
         return;
       }
 
       gestureFrameCount.current += 1;
       if (gestureFrameCount.current < FRAMES_REQUIRED) return;
+      if (now - gestureChangedAt.current < TRANSITION_HOLD_MS) return;
 
       lastGestureTime.current = now;
       lastGestureRef.current = name;
       pendingGesture.current = null;
       gestureFrameCount.current = 0;
-      onGesture(name);
+      gestureChangedAt.current = 0;
+      onGestureRef.current(name);
     };
 
     // Finger tips and base indices
@@ -49,18 +89,7 @@ export function useGesture({ onGesture, enabled = true }) {
     const ringBase = landmarks[14];
     const pinkyBase = landmarks[18];
 
-    // Is finger up? tip higher than base (lower y value)
-    const indexUp = indexTip.y < indexBase.y;
-    const middleUp = middleTip.y < middleBase.y;
-    const ringUp = ringTip.y < ringBase.y;
-    const pinkyUp = pinkyTip.y < pinkyBase.y;
-
     // Geometric extension/curl checks are orientation-agnostic.
-    const wrist = landmarks[0];
-    const middleMcp = landmarks[9];
-    const thumbMcp = landmarks[2];
-
-    const palmSize = Math.hypot(wrist.x - middleMcp.x, wrist.y - middleMcp.y);
     const thumbLength = Math.hypot(thumbTip.x - thumbMcp.x, thumbTip.y - thumbMcp.y);
     const thumbExtended = thumbLength > palmSize * 0.4;
 
@@ -70,10 +99,10 @@ export function useGesture({ onGesture, enabled = true }) {
       return tipToWrist < pipToWrist;
     };
 
-    const indexCurled = isFingerCurled(indexTip, indexBase);
-    const middleCurled = isFingerCurled(middleTip, middleBase);
-    const ringCurled = isFingerCurled(ringTip, ringBase);
-    const pinkyCurled = isFingerCurled(pinkyTip, pinkyBase);
+    const indexUp = !isFingerCurled(indexTip, indexBase);
+    const middleUp = !isFingerCurled(middleTip, middleBase);
+    const ringUp = !isFingerCurled(ringTip, ringBase);
+    const pinkyUp = !isFingerCurled(pinkyTip, pinkyBase);
 
     // ── OPEN PALM (all 4 fingers up) → Confirm / Navigate
     if (indexUp && middleUp && ringUp && pinkyUp) {
@@ -94,13 +123,13 @@ export function useGesture({ onGesture, enabled = true }) {
     }
 
     // ── THUMBS UP → Confirm / Add
-    if (thumbExtended && indexCurled && middleCurled && ringCurled && pinkyCurled) {
+    if (thumbExtended && !indexUp && !middleUp && !ringUp && !pinkyUp) {
       fireGesture("thumbs_up");
       return;
     }
 
     // ── FIST (all fingers down) → Cancel
-    if (indexCurled && middleCurled && ringCurled && pinkyCurled && !thumbExtended) {
+    if (!thumbExtended && !indexUp && !middleUp && !ringUp && !pinkyUp) {
       fireGesture("fist");
       return;
     }
@@ -120,7 +149,8 @@ export function useGesture({ onGesture, enabled = true }) {
     // Reset pending confirmation when no known gesture is matched.
     pendingGesture.current = null;
     gestureFrameCount.current = 0;
-  }, [onGesture]);
+    gestureChangedAt.current = 0;
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -225,27 +255,32 @@ export function useGesture({ onGesture, enabled = true }) {
 
         const hands = new Hands({
           locateFile: (file) =>
-            `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+            `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`,
         });
 
         hands.setOptions({
           maxNumHands: 1,
           modelComplexity: 1,
-          minDetectionConfidence: 0.7,
-          minTrackingConfidence: 0.5,
+          minDetectionConfidence: 0.8,
+          minTrackingConfidence: 0.7,
         });
 
         hands.onResults((results) => {
           if (!active) return;
           if (results.multiHandLandmarks?.length > 0) {
+            const score = results.multiHandedness?.[0]?.score ?? 0;
+            if (score < 0.85) {
+              pendingGesture.current = null;
+              gestureFrameCount.current = 0;
+              gestureChangedAt.current = 0;
+              return;
+            }
             detectGesture(results.multiHandLandmarks[0]);
           } else {
             pendingGesture.current = null;
             gestureFrameCount.current = 0;
-            // Do not reset lastGestureRef here. Keeping the last gesture
-            // allows the repeat guard to suppress re-entry across brief
-            // no-detection frames (e.g. quick open/close where a frame
-            // might be missed). lastGestureTime still governs timing.
+            gestureChangedAt.current = 0;
+            lastGestureRef.current = null;
           }
         });
 

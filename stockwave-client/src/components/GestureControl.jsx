@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useGesture } from "../hooks/useGesture";
 import "./GestureControl.css";
 import { Hand, ThumbsUp, Mic, CameraOff } from "lucide-react";
@@ -15,12 +15,16 @@ const GESTURE_LABELS = {
 
 export default function GestureControl({ onGesture, active = false, onToggle }) {
   const [lastGesture, setLastGesture] = useState(null);
+  const timeoutRef = useRef(null);
 
   const handleGesture = useCallback((gesture) => {
     setLastGesture(gesture);
     onGesture(gesture);
-    setTimeout(() => setLastGesture(null), 1500);
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setLastGesture(null), 1500);
   }, [onGesture]);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const { videoRef, cameraError } = useGesture({
     onGesture: handleGesture,
@@ -28,6 +32,7 @@ export default function GestureControl({ onGesture, active = false, onToggle }) 
   });
 
   const toggle = () => {
+    clearTimeout(timeoutRef.current);
     setLastGesture(null);
     onToggle?.(!active);
   };
@@ -50,13 +55,8 @@ export default function GestureControl({ onGesture, active = false, onToggle }) 
       </button>
 
       {/* ── Panel ── */}
-      {(active || lastGesture) && (
+      {active && (
         <div className="gesture-panel">
-          {cameraError && (
-            <div className="gesture-error">
-              <p>{cameraError}</p>
-            </div>
-          )}
           {/* Webcam preview */}
           <div className="gesture-video-wrap">
             <video
@@ -85,7 +85,7 @@ export default function GestureControl({ onGesture, active = false, onToggle }) 
           {/* Start / Stop + status */}
           <div className="gesture-actions">
               <button className="gesture-toggle-btn" onClick={toggle}>
-              {active ? "Stop gesture" : "Start gesture"}
+              {active ? "Stop gesture control" : "Start gesture control"}
             </button>
             {active && <span className="gesture-status">Detecting...</span>}
           </div>
@@ -93,15 +93,18 @@ export default function GestureControl({ onGesture, active = false, onToggle }) 
           {/* Guide */}
           <div className="gesture-guide">
             <p className="gesture-guide-title">Gestures</p>
-            {Object.entries(GESTURE_LABELS).map(([key, val]) => (
-              <div key={key} className="gesture-guide-item">
-                <span className="gesture-guide-emoji"><val.icon size={18} /></span>
-                <div>
-                  <p className="gesture-guide-name">{val.label}</p>
-                  <p className="gesture-guide-action">{val.action}</p>
+            {Object.entries(GESTURE_LABELS).map(([key, val]) => {
+              const Icon = val.icon;
+              return (
+                <div key={key} className="gesture-guide-item">
+                  <span className="gesture-guide-emoji"><Icon size={18} /></span>
+                  <div>
+                    <p className="gesture-guide-name">{val.label}</p>
+                    <p className="gesture-guide-action">{val.action}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
