@@ -17,7 +17,7 @@ export function exportReportsPDF(summary, categoryData, stockMovement, topProduc
       <td>#${i + 1}</td>
       <td>${p.name}</td>
       <td>${p.category}</td>
-      <td>${p.totalMoved}</td>
+      <td>${p.totalSold}</td>
       <td>${p.stock}</td>
     </tr>
   `).join("");
@@ -25,9 +25,9 @@ export function exportReportsPDF(summary, categoryData, stockMovement, topProduc
   const movementRows = stockMovement.map(m => `
     <tr>
       <td>${m.month}</td>
-      <td style="color:#1a6b3c;font-weight:600">${m.added}</td>
-      <td style="color:#ef4444;font-weight:600">${m.removed}</td>
-      <td>${m.added - m.removed >= 0 ? "+" : ""}${m.added - m.removed}</td>
+      <td style="color:#1a6b3c;font-weight:600">${m.added ?? 0}</td>
+      <td style="color:#6366f1;font-weight:600">${m.sold ?? 0}</td>
+      <td>${(m.added ?? 0) - (m.sold ?? 0) >= 0 ? "+" : ""}${(m.added ?? 0) - (m.sold ?? 0)}</td>
     </tr>
   `).join("");
 
@@ -90,8 +90,8 @@ export function exportReportsPDF(summary, categoryData, stockMovement, topProduc
           <div class="value">${summary?.itemsAddedThisMonth ?? 0}</div>
         </div>
         <div class="stat-box">
-          <div class="label">Items Removed (Month)</div>
-          <div class="value">${summary?.itemsRemovedThisMonth ?? 0}</div>
+          <div class="label">Items Sold (Month)</div>
+          <div class="value">${summary?.itemsSoldThisMonth ?? 0}</div>
         </div>
       </div>
 
@@ -103,16 +103,16 @@ export function exportReportsPDF(summary, categoryData, stockMovement, topProduc
       </table>` : ""}
 
       ${movementRows ? `
-      <h2>Stock Movement (Last 6 Months)</h2>
+      <h2>Stock vs Sales (Last 6 Months)</h2>
       <table>
-        <thead><tr><th>Month</th><th>Added</th><th>Removed</th><th>Net</th></tr></thead>
+        <thead><tr><th>Month</th><th>Added</th><th>Sold</th><th>Net</th></tr></thead>
         <tbody>${movementRows}</tbody>
       </table>` : ""}
 
       ${topRows ? `
-      <h2>Top Moving Products</h2>
+      <h2>Top Selling Products</h2>
       <table>
-        <thead><tr><th>#</th><th>Product</th><th>Category</th><th>Total Moved</th><th>Current Stock</th></tr></thead>
+        <thead><tr><th>#</th><th>Product</th><th>Category</th><th>Total Sold</th><th>Current Stock</th></tr></thead>
         <tbody>${topRows}</tbody>
       </table>` : ""}
 
