@@ -471,10 +471,27 @@ if (user.Role == "Staff")
 
         private string BuildResetLink(string rawToken)
         {
-            // Use config value; fallback matches vite.config.js port 5173
             var baseUrl = _config["Email:ResetLinkBaseUrl"]
-                       ?? _config["Frontend:BaseUrl"]
-                       ?? "http://localhost:5173";
+                       ?? _config["Frontend:BaseUrl"];
+
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                var origin = Request.Headers.Origin.ToString();
+                if (!string.IsNullOrWhiteSpace(origin))
+                {
+                    baseUrl = origin;
+                }
+                else
+                {
+                    var referer = Request.Headers.Referer.ToString();
+                    if (Uri.TryCreate(referer, UriKind.Absolute, out var refererUri))
+                    {
+                        baseUrl = $"{refererUri.Scheme}://{refererUri.Host}{(refererUri.IsDefaultPort ? "" : $":{refererUri.Port}")}";
+                    }
+                }
+            }
+
+            baseUrl ??= "http://localhost:5173";
 
             return $"{baseUrl.TrimEnd('/')}/?token={Uri.EscapeDataString(rawToken)}";
         }
