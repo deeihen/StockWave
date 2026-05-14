@@ -14,6 +14,13 @@ namespace StockWave.Server.Controllers
         private readonly AppDbContext _db;
         public ReportsController(AppDbContext db) { _db = db; }
 
+        private static bool IsSaleAction(string? action) =>
+            string.Equals(action, "Sale", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(action, "Removed", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsAddAction(string? action) =>
+            string.Equals(action, "Added", StringComparison.OrdinalIgnoreCase);
+
         private int GetWorkspaceAdminId()
         {
             var adminIdClaim = User.FindFirstValue("adminId");
@@ -48,12 +55,13 @@ namespace StockWave.Server.Controllers
                 .Where(t => workspaceIds.Contains(t.UserId) && t.Timestamp >= thisMonth);
 
             var added   = await transactions.Where(t => t.Action == "Added").SumAsync(t => (int?)t.Quantity) ?? 0;
-            var removed = await transactions.Where(t => t.Action == "Sale").SumAsync(t => (int?)t.Quantity) ?? 0;
+            var removed = await transactions.Where(t => t.Action == "Sale" || t.Action == "Removed" || t.Action == "Sold").SumAsync(t => (int?)t.Quantity) ?? 0;
             var totalValue = await products.SumAsync(p => (decimal?)((decimal)p.Stock * p.Price)) ?? 0;
 
             return Ok(new {
                 totalProducts, lowStock, outOfStock, inStock,
                 itemsAddedThisMonth   = added,
+                itemsSoldThisMonth    = removed,
                 itemsRemovedThisMonth = removed,
                 totalStockValue       = totalValue
             });
@@ -113,22 +121,39 @@ namespace StockWave.Server.Controllers
         }
 
         // GET /api/reports/stock-movement
+        // Returns monthly revenue and estimated profit for the last 6 months.
+        // The system does not store product cost, so profit is estimated from POS tax data.
         [HttpGet("stock-movement")]
         public async Task<IActionResult> StockMovement()
         {
             var workspaceIds = await GetWorkspaceUserIdsAsync();
             var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
+
+            // Load transactions with their product price for revenue/cost calculation
             var transactions = await _db.StockTransactions
+                .Include(t => t.Product)
                 .Where(t => workspaceIds.Contains(t.UserId) && t.Timestamp >= sixMonthsAgo)
                 .ToListAsync();
 
             var grouped = transactions
                 .GroupBy(t => new { t.Timestamp.Year, t.Timestamp.Month })
                 .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
-                .Select(g => new {
-                    month   = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
-                    added   = g.Where(t => t.Action == "Added").Sum(t => t.Quantity),
-                    removed = g.Where(t => t.Action == "Sale").Sum(t => t.Quantity)
+                .Select(g =>
+                {
+                    // Revenue = total value of units sold (Sale transactions)
+                    var revenue = g
+                        .Where(t => IsSaleAction(t.Action) || string.Equals(t.Action, "Sold", StringComparison.OrdinalIgnoreCase))
+                        .Sum(t => t.Quantity * (t.Product?.Price ?? 0));
+
+                    // Estimated profit = revenue net of the POS tax rate currently used at checkout.
+                    var profit = Math.Round(revenue * 0.93m, 2);
+
+                    return new
+                    {
+                        month   = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
+                        revenue = Math.Round(revenue, 2),
+                        profit  = Math.Round(profit, 2)
+                    };
                 })
                 .ToList();
 
@@ -143,7 +168,7 @@ namespace StockWave.Server.Controllers
             var top = await _db.StockTransactions
                 .Include(t => t.Product)
                 .Where(t => workspaceIds.Contains(t.UserId) &&
-                            (t.Action == "Added" || t.Action == "Sale"))
+                            (t.Action == "Added" || t.Action == "Sale" || t.Action == "Removed" || t.Action == "Sold"))
                 .GroupBy(t => new { t.ProductId, t.Product.Name, t.Product.Category, t.Product.Stock })
                 .Select(g => new {
                     name        = g.Key.Name,

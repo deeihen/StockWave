@@ -22,14 +22,20 @@ export function exportReportsPDF(summary, categoryData, stockMovement, topProduc
     </tr>
   `).join("");
 
-  const movementRows = stockMovement.map(m => `
-    <tr>
-      <td>${m.month}</td>
-      <td style="color:#1a6b3c;font-weight:600">${m.added ?? 0}</td>
-      <td style="color:#6366f1;font-weight:600">${m.sold ?? 0}</td>
-      <td>${(m.added ?? 0) - (m.sold ?? 0) >= 0 ? "+" : ""}${(m.added ?? 0) - (m.sold ?? 0)}</td>
-    </tr>
-  `).join("");
+  // Profit vs Revenue rows (estimated profit from POS tax-adjusted sales)
+  const movementRows = stockMovement.map(m => {
+    const revenue = m.revenue ?? 0;
+    const profit  = m.profit  ?? 0;
+    const margin  = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) + "%" : "—";
+    return `
+      <tr>
+        <td>${m.month}</td>
+        <td style="color:#1a6b3c;font-weight:600">₱${revenue.toLocaleString()}</td>
+        <td style="color:#6366f1;font-weight:600">₱${profit.toLocaleString()}</td>
+        <td>${margin}</td>
+      </tr>
+    `;
+  }).join("");
 
   const html = `
     <!DOCTYPE html>
@@ -103,9 +109,9 @@ export function exportReportsPDF(summary, categoryData, stockMovement, topProduc
       </table>` : ""}
 
       ${movementRows ? `
-      <h2>Stock vs Sales (Last 6 Months)</h2>
+      <h2>Profit vs Revenue (Last 6 Months)</h2>
       <table>
-        <thead><tr><th>Month</th><th>Added</th><th>Sold</th><th>Net</th></tr></thead>
+        <thead><tr><th>Month</th><th>Revenue</th><th>Profit</th><th>Margin</th></tr></thead>
         <tbody>${movementRows}</tbody>
       </table>` : ""}
 
