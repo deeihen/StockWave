@@ -27,3 +27,17 @@
 
 .notif-empty { padding: 32px; text-align: center; color: var(--text-muted); }
 .notif-empty-icon { opacity: 0.2; margin-bottom: 12px; }
+
+@media (max-width: 640px) {
+	.notif-panel {
+		left: 50%;
+		right: auto;
+		transform: translateX(-50%);
+		width: calc(100vw - 24px);
+		max-height: 70vh;
+	}
+
+	.notif-list {
+		max-height: 50vh;
+	}
+}
