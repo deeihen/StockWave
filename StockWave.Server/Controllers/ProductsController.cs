@@ -81,7 +81,7 @@ namespace StockWave.Server.Controllers
             var category = (dto.Category ?? string.Empty).Trim();
 
             if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(category) ||
-                dto.Stock < 0 || dto.Price < 0 || string.IsNullOrWhiteSpace(dto.Unit))
+                dto.Stock < 0 || dto.Price < 0 || dto.CostPrice < 0 || string.IsNullOrWhiteSpace(dto.Unit))
                 return BadRequest(new { message = "Please provide valid product details." });
 
             // Duplicate check scoped to workspace
@@ -100,6 +100,7 @@ namespace StockWave.Server.Controllers
                 Category = category,
                 Stock = dto.Stock,
                 Price = dto.Price,
+                CostPrice = dto.CostPrice,
                 Unit = dto.Unit,
                 Status = GetStatus(dto.Stock),
                 CreatedAt = DateTime.UtcNow,
@@ -136,7 +137,7 @@ namespace StockWave.Server.Controllers
             var category = (dto.Category ?? string.Empty).Trim();
 
             if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(category) ||
-                dto.Stock < 0 || dto.Price < 0 || string.IsNullOrWhiteSpace(dto.Unit))
+                dto.Stock < 0 || dto.Price < 0 || dto.CostPrice < 0 || string.IsNullOrWhiteSpace(dto.Unit))
                 return BadRequest(new { message = "Please provide valid product details." });
 
             var exists = await _db.Products.AnyAsync(p =>
@@ -153,6 +154,7 @@ namespace StockWave.Server.Controllers
             product.Category = category;
             product.Stock = dto.Stock;
             product.Price = dto.Price;
+            product.CostPrice = dto.CostPrice;
             product.Unit = dto.Unit;
             product.Status = GetStatus(dto.Stock);
             product.UpdatedAt = DateTime.UtcNow;
@@ -198,6 +200,7 @@ namespace StockWave.Server.Controllers
         string Category,
         int Stock,
         decimal Price,
+        decimal CostPrice,
         string Unit,
         string? PerformedBy
     );

@@ -9,6 +9,7 @@ namespace StockWave.Server.Models
         public string Category { get; set; } = string.Empty;
         public int Stock { get; set; } = 0;
         public decimal Price { get; set; } = 0;
+        public decimal CostPrice { get; set; } = 0;
         public string Unit { get; set; } = "pcs";
         public string Status { get; set; } = "In Stock";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

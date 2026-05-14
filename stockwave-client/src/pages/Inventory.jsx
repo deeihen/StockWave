@@ -15,7 +15,7 @@ import {
 
 const categories = ["All", "Electronics", "Furniture", "Office Supplies"];
 const statuses = ["All", "In Stock", "Low Stock", "Out of Stock"];
-const emptyForm = { name: "", category: "Electronics", stock: "", price: "", unit: "pcs", status: "In Stock" };
+const emptyForm = { name: "", category: "Electronics", stock: "", price: "", costPrice: "", unit: "pcs", status: "In Stock" };
 
 // ── Status Badge ───────────────────────────────────
 function StatusBadge({ status }) {
@@ -44,7 +44,7 @@ function ProductModal({ mode, product, onClose, onSave, saving }) {
     if (!form.name || !form.stock || !form.price || !form.unit) {
       setError("Please fill in all fields."); return;
     }
-    onSave({ ...form, stock: parseInt(form.stock), price: parseFloat(form.price) });
+    onSave({ ...form, stock: parseInt(form.stock), price: parseFloat(form.price), costPrice: parseFloat(form.costPrice) || 0 });
   };
 
   return (
@@ -84,9 +84,33 @@ function ProductModal({ mode, product, onClose, onSave, saving }) {
                 placeholder="0" value={form.stock} onChange={handleChange} />
             </div>
             <div className="mfield-group">
-              <label className="mfield-label">Price (₱)</label>
+              <label className="mfield-label">Selling Price (₱)</label>
               <input className="mfield-input" name="price" type="number" min="0"
                 placeholder="0.00" value={form.price} onChange={handleChange} />
+            </div>
+          </div>
+          <div className="mfield-row">
+            <div className="mfield-group">
+              <label className="mfield-label">Cost Price (₱)</label>
+              <input className="mfield-input" name="costPrice" type="number" min="0"
+                placeholder="0.00" value={form.costPrice} onChange={handleChange} />
+              <span className="field-hint">Purchase/acquisition cost per unit</span>
+            </div>
+            <div className="mfield-group">
+              <label className="mfield-label">Profit per Unit</label>
+              <div className="mfield-input profit-preview" style={{ display: "flex", alignItems: "center" }}>
+                {(() => {
+                  const sell = parseFloat(form.price) || 0;
+                  const cost = parseFloat(form.costPrice) || 0;
+                  const profit = sell - cost;
+                  const margin = sell > 0 ? ((profit / sell) * 100).toFixed(1) : "0.0";
+                  return (
+                    <span style={{ color: profit >= 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                      ₱{profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({margin}%)
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
           </div>
           <div className="mfield-group">
@@ -308,6 +332,7 @@ export default function Inventory({ openAddSignal = 0 }) {
           category: product.category,
           stock: product.stock + qty,
           price: product.price,
+          costPrice: product.costPrice ?? 0,
           unit: product.unit,
           performedBy: user.username || "Admin",
         });
@@ -441,6 +466,14 @@ export default function Inventory({ openAddSignal = 0 }) {
                   <span className="inv-card-unit">{p.unit}</span>
                   <span className="inv-card-price">₱{p.price.toLocaleString()}</span>
                 </div>
+                {p.costPrice > 0 && (
+                  <div className="inv-card-cost-row">
+                    <span className="inv-card-cost">Cost: ₱{p.costPrice.toLocaleString()}</span>
+                    <span className={`inv-card-profit ${(p.price - p.costPrice) >= 0 ? "positive" : "negative"}`}>
+                      Profit: ₱{(p.price - p.costPrice).toLocaleString()} / unit
+                    </span>
+                  </div>
+                )}
                 <div className="inv-card-status">
                   <StatusBadge status={p.status} />
                 </div>
@@ -532,22 +565,30 @@ export default function Inventory({ openAddSignal = 0 }) {
                     {expandedId === p.id && (
                       <tr className="expand-row">
                         <td colSpan="9">
-                          <div className="expand-panel">
+                          <div className="expand-panel expand-panel-5">
                             <div>
-                              <p className="expand-label">Stock Value</p>
+                              <p className="expand-label">Revenue (all sold)</p>
                               <p className="expand-value">₱{(p.price * p.stock).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="expand-label">Cost Price</p>
+                              <p className="expand-value">{p.costPrice > 0 ? `₱${p.costPrice.toLocaleString()}` : "—"}</p>
+                            </div>
+                            <div>
+                              <p className="expand-label">Profit / Unit</p>
+                              <p className="expand-value" style={{ color: p.costPrice > 0 ? ((p.price - p.costPrice) >= 0 ? "#10b981" : "#ef4444") : "var(--text-main)" }}>
+                                {p.costPrice > 0 ? `₱${(p.price - p.costPrice).toLocaleString()}` : "—"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="expand-label">Profit Margin</p>
+                              <p className="expand-value" style={{ color: p.costPrice > 0 && p.price > 0 ? ((p.price - p.costPrice) >= 0 ? "#10b981" : "#ef4444") : "var(--text-main)" }}>
+                                {p.costPrice > 0 && p.price > 0 ? `${(((p.price - p.costPrice) / p.price) * 100).toFixed(1)}%` : "—"}
+                              </p>
                             </div>
                             <div>
                               <p className="expand-label">Reorder Point</p>
                               <p className="expand-value">{p.stock <= 10 ? "Triggered" : "Normal"}</p>
-                            </div>
-                            <div>
-                              <p className="expand-label">Last Movement</p>
-                              <p className="expand-value">{p.stock <= 10 ? "Restock soon" : "Stable"}</p>
-                            </div>
-                            <div className="expand-actions">
-                              <button className="expand-btn-alt">Open POS</button>
-                              <button className="expand-btn-alt">Create transfer</button>
                             </div>
                           </div>
                         </td>

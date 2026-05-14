@@ -121,8 +121,8 @@ namespace StockWave.Server.Controllers
         }
 
         // GET /api/reports/stock-movement
-        // Returns monthly revenue and estimated profit for the last 6 months.
-        // The system does not store product cost, so profit is estimated from POS tax data.
+        // Returns monthly revenue and profit for the last 6 months.
+        // Profit is calculated from actual product cost prices.
         [HttpGet("stock-movement")]
         public async Task<IActionResult> StockMovement()
         {
@@ -140,13 +140,18 @@ namespace StockWave.Server.Controllers
                 .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                 .Select(g =>
                 {
-                    // Revenue = total value of units sold (Sale transactions)
-                    var revenue = g
+                    var saleTxns = g
                         .Where(t => IsSaleAction(t.Action) || string.Equals(t.Action, "Sold", StringComparison.OrdinalIgnoreCase))
-                        .Sum(t => t.Quantity * (t.Product?.Price ?? 0));
+                        .ToList();
 
-                    // Estimated profit = revenue net of the POS tax rate currently used at checkout.
-                    var profit = Math.Round(revenue * 0.93m, 2);
+                    // Revenue = total value of units sold (Sale transactions)
+                    var revenue = saleTxns.Sum(t => t.Quantity * (t.Product?.Price ?? 0));
+
+                    // Cost = total cost of units sold using actual CostPrice
+                    var cost = saleTxns.Sum(t => t.Quantity * (t.Product?.CostPrice ?? 0));
+
+                    // Profit = revenue minus cost (if cost data exists), otherwise estimate at 93%
+                    var profit = cost > 0 ? revenue - cost : Math.Round(revenue * 0.93m, 2);
 
                     return new
                     {

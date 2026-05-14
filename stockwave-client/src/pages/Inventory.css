@@ -160,11 +160,23 @@
 
 .expand-row td { background: var(--surface-2); }
 .expand-panel { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 16px; align-items: center; padding: 12px; }
+.expand-panel-5 { grid-template-columns: repeat(5, 1fr); }
 .expand-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); }
 .expand-value { font-size: 13px; font-weight: 700; color: var(--text-main); }
 .expand-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .expand-btn-alt { height: 30px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: white; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; }
 .expand-btn-alt:hover { border-color: rgba(91, 107, 222, 0.35); color: var(--text-main); }
+
+/* ── COST / PROFIT ELEMENTS ── */
+.field-hint { font-size: 10px; color: var(--text-dim); margin-top: 4px; display: block; }
+.profit-preview { background: var(--surface-2) !important; border: 1px dashed var(--border) !important; cursor: default; }
+.inv-card-cost-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; margin-bottom: 4px; font-size: 11px; font-weight: 600;
+}
+.inv-card-cost { color: var(--text-dim); }
+.inv-card-profit.positive { color: #10b981; }
+.inv-card-profit.negative { color: #ef4444; }
 
 /* ── MOBILE CARDS ── */
 .inv-card-list {
