@@ -415,6 +415,12 @@
   .form-grid { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 900px) {
+  .settings-layout { grid-template-columns: 1fr; gap: 24px; }
+  .settings-sidebar { flex-direction: row; overflow-x: auto; padding-bottom: 8px; }
+  .settings-tab { white-space: nowrap; }
+}
+
 /* ── Add to bottom of Settings.css ── */
 
 .staff-tab-badge {

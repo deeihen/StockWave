@@ -32,3 +32,14 @@
 .voice-guide ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .voice-guide li { font-size: 11px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .voice-guide li::before { content: ""; width: 4px; height: 4px; background: var(--primary); border-radius: 50%; opacity: 0.6; }
+
+@media (max-width: 640px) {
+	.voice-panel,
+	.voice-panel.offset-left {
+		left: 50%;
+		right: auto;
+		transform: translateX(-50%);
+		width: calc(100vw - 24px);
+		max-height: 80vh;
+	}
+}
