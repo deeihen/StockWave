@@ -13,6 +13,9 @@ inventory management, stock levels, restock suggestions, product tracking,
 warehouse operations, sales trends, supply chain, and POS operations.
 If the user asks about anything outside of these topics, politely decline and remind
 them you are an inventory/ops assistant only. Never answer off-topic questions.
+When account data is provided in the prompt, treat it as the only source of truth.
+Do not invent products, counts, prices, stock levels, staff, or other account facts.
+If the needed fact is not explicitly present in the provided context, say you cannot verify it from the current account data.
 Keep responses concise and practical.`;
 
 // ── Model fallback chain (ordered by RPD quota, highest last as safety net) ──
@@ -32,6 +35,8 @@ const MODELS = [
   "gemma-3-12b-it",          // 14,400 RPD
   "gemma-3-4b-it",           // 14,400 RPD — last resort
 ];
+
+const MAX_GROUNDING_ITEMS = 50;
 
 // ── Inventory keyword filter (client-side guard) ──────────────────
 const INVENTORY_KEYWORDS = [
@@ -61,6 +66,64 @@ function normalizeInput(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function serializeGroundingContext(groundingContext) {
+  if (!groundingContext) return "";
+
+  if (typeof groundingContext === "string") {
+    return groundingContext.trim();
+  }
+
+  const sections = [];
+
+  if (groundingContext.scope) {
+    sections.push(`SCOPE: ${String(groundingContext.scope).trim()}`);
+  }
+
+  if (Array.isArray(groundingContext.products)) {
+    const products = groundingContext.products.slice(0, MAX_GROUNDING_ITEMS).map((product) => ({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      stock: product.stock,
+      unit: product.unit,
+      status: product.status,
+      price: product.price,
+      updatedAt: product.updatedAt,
+    }));
+    sections.push(`PRODUCTS_JSON: ${JSON.stringify(products)}`);
+  }
+
+  if (Array.isArray(groundingContext.lowStock)) {
+    const lowStock = groundingContext.lowStock.slice(0, MAX_GROUNDING_ITEMS).map((product) => ({
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      stock: product.stock,
+      unit: product.unit,
+      status: product.status,
+    }));
+    sections.push(`LOW_STOCK_JSON: ${JSON.stringify(lowStock)}`);
+  }
+
+  if (groundingContext.summary) {
+    sections.push(`SUMMARY_JSON: ${JSON.stringify(groundingContext.summary)}`);
+  }
+
+  if (Array.isArray(groundingContext.recentActivity)) {
+    const recentActivity = groundingContext.recentActivity.slice(0, MAX_GROUNDING_ITEMS).map((entry) => ({
+      id: entry.id,
+      action: entry.action,
+      item: entry.item,
+      quantity: entry.quantity,
+      performedBy: entry.performedBy,
+      timestamp: entry.timestamp,
+    }));
+    sections.push(`RECENT_ACTIVITY_JSON: ${JSON.stringify(recentActivity)}`);
+  }
+
+  return sections.join("\n");
 }
 
 function isRateLimited() {
@@ -98,8 +161,10 @@ export function resetChat() {
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
-export async function askWaveAI(userMessage) {
+export async function askWaveAI(userMessage, options = {}) {
   const cleanedMessage = normalizeInput(userMessage);
+  const groundingContext = serializeGroundingContext(options.groundingContext);
+  const strictContextOnly = Boolean(options.strictContextOnly || groundingContext);
 
   if (!cleanedMessage) {
     return "Please enter a question so I can help.";
@@ -121,25 +186,33 @@ export async function askWaveAI(userMessage) {
     return "⚠️ I can only help with inventory and operations topics — things like stock levels, restocking, product tracking, sales trends, and warehouse ops. Please ask something related to those areas!";
   }
 
-  history.push({ role: "user", parts: [{ text: cleanedMessage }] });
-  if (history.length > MAX_HISTORY_MESSAGES) {
-    history = history.slice(-MAX_HISTORY_MESSAGES);
+  const conversation = strictContextOnly ? [] : history;
+
+  conversation.push({ role: "user", parts: [{ text: cleanedMessage }] });
+  if (conversation.length > MAX_HISTORY_MESSAGES) {
+    conversation.splice(0, conversation.length - MAX_HISTORY_MESSAGES);
   }
 
   for (let m = 0; m < MODELS.length; m++) {
     const model = MODELS[m];
     try {
       console.log(`WaveAI: trying model "${model}"...`);
+      const systemInstruction = groundingContext
+        ? `${SYSTEM_INSTRUCTION}\n\nACCOUNT_CONTEXT (use only this data):\n${groundingContext}`
+        : SYSTEM_INSTRUCTION;
       const response = await ai.models.generateContent({
         model,
-        contents: history,
-        config: { systemInstruction: SYSTEM_INSTRUCTION },
+        contents: conversation,
+        config: { systemInstruction },
       });
 
       const reply = response.text;
-      history.push({ role: "model", parts: [{ text: reply }] });
-      if (history.length > MAX_HISTORY_MESSAGES) {
-        history = history.slice(-MAX_HISTORY_MESSAGES);
+      conversation.push({ role: "model", parts: [{ text: reply }] });
+      if (conversation.length > MAX_HISTORY_MESSAGES) {
+        conversation.splice(0, conversation.length - MAX_HISTORY_MESSAGES);
+      }
+      if (!strictContextOnly) {
+        history = conversation;
       }
       console.log(`WaveAI: success with model "${model}"`);
       return reply;
@@ -160,7 +233,7 @@ export async function askWaveAI(userMessage) {
       }
 
       // All models exhausted
-      history.pop();
+      conversation.pop();
       return "⏳ All AI models are currently at capacity. Please wait a moment and try again.";
     }
   }

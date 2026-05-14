@@ -13,52 +13,87 @@ namespace StockWave.Server.Controllers
     public class NotificationsController : ControllerBase
     {
         private readonly AppDbContext _db;
-
         public NotificationsController(AppDbContext db) { _db = db; }
+
+        private int GetUserId()
+        {
+            return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
+        }
+
+        private int GetWorkspaceAdminId()
+        {
+            return int.Parse(User.FindFirstValue("adminId") ?? "0");
+        }
+
+        private async Task<List<int>> GetWorkspaceUserIdsAsync()
+        {
+            var adminId = GetWorkspaceAdminId();
+            var staffIds = await _db.Users
+                .Where(u => u.AdminId == adminId)
+                .Select(u => u.Id)
+                .ToListAsync();
+            staffIds.Add(adminId);
+            return staffIds;
+        }
 
         // GET /api/notifications
         [HttpGet]
         public async Task<IActionResult> GetNotifications()
         {
-            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(userIdStr) || !int.TryParse(userIdStr, out var userId))
-                return Unauthorized(new { message = "Invalid token." });
+            var userId = GetUserId();
+            var workspaceIds = await GetWorkspaceUserIdsAsync();
 
-            // Get user's notification states from DB (keyed by our custom string ID stored in Title)
+            // Get this user's notification read/deleted states
             var states = await _db.Notifications
                 .Where(n => n.UserId == userId)
                 .ToDictionaryAsync(n => n.Title, n => n);
 
-            // Get low stock alerts (virtual)
+            // Low stock alerts — scoped to workspace products only
             var lowStockNotifs = await _db.Products
-                .Where(p => p.Stock <= 10)
+                .Where(p => workspaceIds.Contains(p.UserId) && p.Stock <= 10)
                 .Select(p => new
                 {
-                    id = $"low-{p.Id}",
-                    type = "warning",
-                    icon = "⚠️",
-                    title = "Low Stock Alert",
-                    message = $"{p.Name} is running low — only {p.Stock} units left.",
+                    id        = $"low-{p.Id}",
+                    type      = "warning",
+                    icon      = "⚠️",
+                    title     = "Low Stock Alert",
+                    message   = $"{p.Name} is running low — only {p.Stock} units left.",
                     createdAt = DateTime.UtcNow,
                 })
                 .ToListAsync();
 
-            // Get recent activity (virtual - last 10)
+            // Activity notifications — scoped to workspace transactions only
             var activityNotifs = await _db.StockTransactions
+                .Where(t => workspaceIds.Contains(t.UserId))
                 .OrderByDescending(t => t.Timestamp)
                 .Take(10)
                 .Select(t => new
                 {
-                    id = $"act-{t.Id}",
-                    type = t.Quantity > 0 ? "success" : "info",
-                    icon = t.Quantity > 0 ? "📥" : "📤",
-                    title = (t.Quantity > 0 ? "Added" : "Removed") + ": " + t.Product.Name,
-                    message = $"{Math.Abs(t.Quantity)} units by {t.PerformedBy}",
+                    id        = $"act-{t.Id}",
+                    type      = t.Quantity > 0 ? "success" : "info",
+                    icon      = t.Quantity > 0 ? "📥" : "📤",
+                    title     = (t.Quantity > 0 ? "Added" : "Removed") + ": " + t.Product.Name,
+                    message   = $"{Math.Abs(t.Quantity)} units by {t.PerformedBy}",
                     createdAt = t.Timestamp,
                 })
                 .ToListAsync();
 
-            // Merge and apply states
+            var persistedNotifs = await _db.Notifications
+                .Where(n => n.UserId == userId && n.DeletedAt == null && n.Title.StartsWith("passwd-req-"))
+                .OrderByDescending(n => n.CreatedAt)
+                .Select(n => new
+                {
+                    id = n.Title,
+                    type = n.Type,
+                    icon = n.Icon,
+                    title = "Staff Password Request",
+                    message = n.Message,
+                    createdAt = n.CreatedAt,
+                    isRead = n.IsRead,
+                    deletedAt = n.DeletedAt
+                })
+                .ToListAsync();
+
             var allNotifications = lowStockNotifs.Concat(activityNotifs)
                 .Select(n => {
                     var hasState = states.TryGetValue(n.id, out var state);
@@ -69,11 +104,12 @@ namespace StockWave.Server.Controllers
                         n.title,
                         n.message,
                         n.createdAt,
-                        isRead = hasState && state!.IsRead,
+                        isRead    = hasState && state!.IsRead,
                         deletedAt = hasState ? state!.DeletedAt : null
                     };
                 })
-                .Where(n => n.deletedAt == null) // Filter out deleted ones
+                .Where(n => n.deletedAt == null)
+                .Concat(persistedNotifs)
                 .OrderByDescending(n => n.createdAt)
                 .ToList();
 
@@ -84,28 +120,30 @@ namespace StockWave.Server.Controllers
         [HttpPut("{id}/read")]
         public async Task<IActionResult> MarkAsRead(string id)
         {
-            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(userIdStr) || !int.TryParse(userIdStr, out var userId))
-                return Unauthorized(new { message = "Invalid token." });
+            var userId = GetUserId();
+
+            if (id.StartsWith("passwd-req-"))
+            {
+                var row = await _db.Notifications
+                    .FirstOrDefaultAsync(n => n.UserId == userId && n.Title == id);
+
+                if (row != null)
+                {
+                    row.IsRead = true;
+                    row.ReadAt = DateTime.UtcNow;
+                }
+
+                await _db.SaveChangesAsync();
+                return Ok(new { message = "Notification marked as read." });
+            }
 
             var existing = await _db.Notifications
                 .FirstOrDefaultAsync(n => n.UserId == userId && n.Title == id);
 
             if (existing == null)
-            {
-                _db.Notifications.Add(new Notification
-                {
-                    UserId = userId,
-                    Title = id, // Use the custom ID as Title
-                    IsRead = true,
-                    ReadAt = DateTime.UtcNow
-                });
-            }
+                _db.Notifications.Add(new Notification { UserId = userId, Title = id, IsRead = true, ReadAt = DateTime.UtcNow });
             else
-            {
-                existing.IsRead = true;
-                existing.ReadAt = DateTime.UtcNow;
-            }
+            { existing.IsRead = true; existing.ReadAt = DateTime.UtcNow; }
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "Notification marked as read." });
@@ -115,38 +153,27 @@ namespace StockWave.Server.Controllers
         [HttpPut("read-all")]
         public async Task<IActionResult> MarkAllAsRead()
         {
-            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(userIdStr) || !int.TryParse(userIdStr, out var userId))
-                return Unauthorized(new { message = "Invalid token." });
+            var userId       = GetUserId();
+            var workspaceIds = await GetWorkspaceUserIdsAsync();
 
-            // We need to find all "virtual" notifications currently active and mark them
-            var products = await _db.Products.Where(p => p.Stock <= 10).Select(p => $"low-{p.Id}").ToListAsync();
-            var transactions = await _db.StockTransactions.OrderByDescending(t => t.Timestamp).Take(10).Select(t => $"act-{t.Id}").ToListAsync();
-            var activeIds = products.Concat(transactions).ToList();
+            var products     = await _db.Products.Where(p => workspaceIds.Contains(p.UserId) && p.Stock <= 10).Select(p => $"low-{p.Id}").ToListAsync();
+            var transactions = await _db.StockTransactions.Where(t => workspaceIds.Contains(t.UserId)).OrderByDescending(t => t.Timestamp).Take(10).Select(t => $"act-{t.Id}").ToListAsync();
+            var activeIds    = products.Concat(transactions).ToList();
 
-            var existingStates = await _db.Notifications
-                .Where(n => n.UserId == userId && activeIds.Contains(n.Title))
-                .ToListAsync();
+            var existingStates = await _db.Notifications.Where(n => n.UserId == userId && activeIds.Contains(n.Title)).ToListAsync();
+            var existingIds    = existingStates.Select(s => s.Title).ToHashSet();
 
-            var existingIds = existingStates.Select(s => s.Title).ToHashSet();
-
-            // Update existing
-            foreach (var state in existingStates)
-            {
-                state.IsRead = true;
-                state.ReadAt = DateTime.UtcNow;
-            }
-
-            // Create new for those missing
+            foreach (var s in existingStates) { s.IsRead = true; s.ReadAt = DateTime.UtcNow; }
             foreach (var id in activeIds.Where(id => !existingIds.Contains(id)))
+                _db.Notifications.Add(new Notification { UserId = userId, Title = id, IsRead = true, ReadAt = DateTime.UtcNow });
+
+            var persistedUnread = await _db.Notifications
+                .Where(n => n.UserId == userId && n.Title.StartsWith("passwd-req-") && !n.IsRead && n.DeletedAt == null)
+                .ToListAsync();
+            foreach (var n in persistedUnread)
             {
-                _db.Notifications.Add(new Notification
-                {
-                    UserId = userId,
-                    Title = id,
-                    IsRead = true,
-                    ReadAt = DateTime.UtcNow
-                });
+                n.IsRead = true;
+                n.ReadAt = DateTime.UtcNow;
             }
 
             await _db.SaveChangesAsync();
@@ -157,25 +184,21 @@ namespace StockWave.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteNotification(string id)
         {
-            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(userIdStr) || !int.TryParse(userIdStr, out var userId))
-                return Unauthorized(new { message = "Invalid token." });
-
+            var userId = GetUserId();
             var existing = await _db.Notifications
                 .FirstOrDefaultAsync(n => n.UserId == userId && n.Title == id);
 
-            if (existing == null)
+            if (id.StartsWith("passwd-req-"))
             {
-                _db.Notifications.Add(new Notification
-                {
-                    UserId = userId,
-                    Title = id,
-                    DeletedAt = DateTime.UtcNow
-                });
+                if (existing != null)
+                    existing.DeletedAt = DateTime.UtcNow;
             }
             else
             {
-                existing.DeletedAt = DateTime.UtcNow;
+                if (existing == null)
+                    _db.Notifications.Add(new Notification { UserId = userId, Title = id, DeletedAt = DateTime.UtcNow });
+                else
+                    existing.DeletedAt = DateTime.UtcNow;
             }
 
             await _db.SaveChangesAsync();
@@ -186,37 +209,25 @@ namespace StockWave.Server.Controllers
         [HttpDelete("clear-all")]
         public async Task<IActionResult> ClearAllNotifications()
         {
-            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(userIdStr) || !int.TryParse(userIdStr, out var userId))
-                return Unauthorized(new { message = "Invalid token." });
+            var userId       = GetUserId();
+            var workspaceIds = await GetWorkspaceUserIdsAsync();
 
-            // Find all active virtual notifications
-            var products = await _db.Products.Where(p => p.Stock <= 10).Select(p => $"low-{p.Id}").ToListAsync();
-            var transactions = await _db.StockTransactions.OrderByDescending(t => t.Timestamp).Take(10).Select(t => $"act-{t.Id}").ToListAsync();
-            var activeIds = products.Concat(transactions).ToList();
+            var products     = await _db.Products.Where(p => workspaceIds.Contains(p.UserId) && p.Stock <= 10).Select(p => $"low-{p.Id}").ToListAsync();
+            var transactions = await _db.StockTransactions.Where(t => workspaceIds.Contains(t.UserId)).OrderByDescending(t => t.Timestamp).Take(10).Select(t => $"act-{t.Id}").ToListAsync();
+            var activeIds    = products.Concat(transactions).ToList();
 
-            var existingStates = await _db.Notifications
-                .Where(n => n.UserId == userId && activeIds.Contains(n.Title))
-                .ToListAsync();
+            var existingStates = await _db.Notifications.Where(n => n.UserId == userId && activeIds.Contains(n.Title)).ToListAsync();
+            var existingIds    = existingStates.Select(s => s.Title).ToHashSet();
 
-            var existingIds = existingStates.Select(s => s.Title).ToHashSet();
-
-            // Update existing
-            foreach (var state in existingStates)
-            {
-                state.DeletedAt = DateTime.UtcNow;
-            }
-
-            // Create new for those missing
+            foreach (var s in existingStates) s.DeletedAt = DateTime.UtcNow;
             foreach (var id in activeIds.Where(id => !existingIds.Contains(id)))
-            {
-                _db.Notifications.Add(new Notification
-                {
-                    UserId = userId,
-                    Title = id,
-                    DeletedAt = DateTime.UtcNow
-                });
-            }
+                _db.Notifications.Add(new Notification { UserId = userId, Title = id, DeletedAt = DateTime.UtcNow });
+
+            var persistedRows = await _db.Notifications
+                .Where(n => n.UserId == userId && n.Title.StartsWith("passwd-req-") && n.DeletedAt == null)
+                .ToListAsync();
+            foreach (var n in persistedRows)
+                n.DeletedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "All notifications cleared." });

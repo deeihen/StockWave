@@ -62,6 +62,18 @@ docker run --name stockwave-db -e POSTGRES_PASSWORD=yourpassword -e POSTGRES_DB=
 
 If you do not have Docker, install PostgreSQL directly from [postgresql.org](https://www.postgresql.org/download/), then use the same host, port, database, username, and password in `appsettings.json`.
 
+For forgot-password emails, configure SMTP settings in `StockWave.Server` using these keys in appsettings or environment variables:
+- `Email:SmtpHost`
+- `Email:SmtpPort`
+- `Email:Username`
+- `Email:Password`
+- `Email:FromAddress`
+- `Email:FromName`
+- `Email:EnableSsl`
+- `Email:ResetLinkBaseUrl` or `Frontend:BaseUrl`
+
+This app uses its own auth controller, so Supabase Auth email templates are not used directly. If you want a Supabase-style reset email, set the SMTP values from your email provider or Supabase SMTP settings and the backend will send the reset link itself.
+
 ### 3. Frontend Setup
 ```bash
 cd stockwave-client

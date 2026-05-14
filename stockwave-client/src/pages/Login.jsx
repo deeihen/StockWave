@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
-import { loginUser } from "../api/stockwaveApi";
+import { loginUser, forgotPassword, resetPassword } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
 import {
   User as UserIcon,
@@ -11,7 +11,11 @@ import {
   RefreshCcw,
   AlertCircle,
   ScanQrCode,
-  LayoutDashboard
+  LayoutDashboard,
+  Mail,
+  CheckCircle,
+  ArrowLeft,
+  KeyRound,
 } from "lucide-react";
 
 export default function Login({ onLoginSuccess, onGoRegister }) {
@@ -21,6 +25,15 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { run, isRunning } = useActionGuard(500);
+
+  const [fpStep, setFpStep] = useState(null);
+  const [fpInput, setFpInput] = useState("");
+  const [fpLoading, setFpLoading] = useState(false);
+  const [fpError, setFpError] = useState("");
+  const [fpResetToken, setFpResetToken] = useState("");
+  const [fpNewPass, setFpNewPass] = useState("");
+  const [fpConfirm, setFpConfirm] = useState("");
+  const [fpShowPass, setFpShowPass] = useState(false);
 
   // QR Scan state
   const [qrActive, setQrActive] = useState(false);
@@ -323,6 +336,90 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
     await loginWithCredentials(form.username, form.password, "form");
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token) {
+      setFpResetToken(token);
+      setFpStep("reset-form");
+    }
+  }, []);
+
+  const openForgotModal = (e) => {
+    e.preventDefault();
+    setFpStep("request");
+    setFpInput("");
+    setFpError("");
+  };
+
+  const closeForgotModal = () => {
+    setFpStep(null);
+    setFpInput("");
+    setFpError("");
+    setFpNewPass("");
+    setFpConfirm("");
+    setFpResetToken("");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    window.history.replaceState({}, "", url.toString());
+  };
+
+  const handleForgotSubmit = async () => {
+    setFpError("");
+    if (!fpInput.trim()) {
+      setFpError("Please enter your username or email.");
+      return;
+    }
+
+    setFpLoading(true);
+    try {
+      const res = await forgotPassword({ usernameOrEmail: fpInput.trim() });
+      const { found, isStaff } = res.data;
+
+      if (!found) {
+        setFpError("No account found with that username or email.");
+        return;
+      }
+
+      if (isStaff) {
+        setFpStep("staff-message");
+        return;
+      }
+
+      setFpStep("email-sent");
+    } catch (err) {
+      setFpError(err.response?.data?.message || "Something went wrong. Please try again.");
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
+  const handleResetSubmit = async () => {
+    setFpError("");
+    if (!fpNewPass) {
+      setFpError("New password is required.");
+      return;
+    }
+    if (fpNewPass.length < 6) {
+      setFpError("Password must be at least 6 characters.");
+      return;
+    }
+    if (fpNewPass !== fpConfirm) {
+      setFpError("Passwords do not match.");
+      return;
+    }
+
+    setFpLoading(true);
+    try {
+      await resetPassword({ token: fpResetToken, newPassword: fpNewPass });
+      setFpStep("reset-done");
+    } catch (err) {
+      setFpError(err.response?.data?.message || "Reset failed. The link may have expired.");
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
   const toggleQr = () => {
     if (loading) return;
       run("qr-toggle", async () => {
@@ -465,7 +562,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                   <span className="checkmark" />
                   Remember me
                 </label>
-                <a href="#" className="forgot-link">
+                <a href="#" className="forgot-link" onClick={openForgotModal}>
                   Forgot password?
                 </a>
               </div>
@@ -530,6 +627,132 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
           </p>
         </div>
       </div>
+
+      {fpStep && (
+        <div className="fp-overlay" onClick={closeForgotModal}>
+          <div className="fp-card" onClick={(e) => e.stopPropagation()}>
+            <div className="fp-header">
+              <div className="fp-header-icon"><KeyRound size={20} color="#059669" /></div>
+              <div>
+                <h3 className="fp-title">
+                  {fpStep === "request" && "Forgot Password"}
+                  {fpStep === "staff-message" && "Password Reset"}
+                  {fpStep === "email-sent" && "Check Your Email"}
+                  {fpStep === "reset-form" && "Set New Password"}
+                  {fpStep === "reset-done" && "Password Updated"}
+                </h3>
+                <p className="fp-sub">
+                  {fpStep === "request" && "Enter your username or email"}
+                  {fpStep === "staff-message" && "Staff account detected"}
+                  {fpStep === "email-sent" && "A reset link has been emailed"}
+                  {fpStep === "reset-form" && "Choose a new password"}
+                  {fpStep === "reset-done" && "You can now sign in"}
+                </p>
+              </div>
+              <button className="fp-close" onClick={closeForgotModal}>✕</button>
+            </div>
+
+            <div className="fp-body">
+              {fpStep === "request" && (<>
+                {fpError && <div className="fp-error"><AlertCircle size={14}/> {fpError}</div>}
+                <div className="fp-field">
+                  <label className="fp-label">Username or Email</label>
+                  <div className="fp-input-wrap">
+                    <Mail size={16} className="fp-input-icon"/>
+                    <input
+                      className="fp-input"
+                      type="text"
+                      placeholder="Enter your username or email"
+                      value={fpInput}
+                      onChange={(e) => setFpInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleForgotSubmit()}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <button className={`fp-btn-primary${fpLoading ? " loading" : ""}`} onClick={handleForgotSubmit} disabled={fpLoading}>
+                  {fpLoading ? <RefreshCcw className="spinner" size={16}/> : "Send Reset Link"}
+                </button>
+                <button className="fp-btn-ghost" onClick={closeForgotModal}>
+                  <ArrowLeft size={14}/> Back to Sign In
+                </button>
+              </>)}
+
+              {fpStep === "staff-message" && (<>
+                <div className="fp-info-box">
+                  <div className="fp-info-icon">ℹ️</div>
+                  <p className="fp-info-text">
+                    Staff accounts cannot reset their password directly.
+                    Please <strong>inform your admin</strong> to change it for you from <em>Settings → Staff Accounts</em>.
+                  </p>
+                  <p className="fp-info-text fp-info-muted">
+                    Your admin has been notified of your request.
+                  </p>
+                </div>
+                <button className="fp-btn-primary" onClick={closeForgotModal}>Got it</button>
+              </>)}
+
+              {fpStep === "email-sent" && (<>
+                <div className="fp-info-box fp-info-box--success">
+                  <CheckCircle size={32} color="#059669" className="fp-info-center-icon"/>
+                  <p className="fp-info-text fp-info-center">
+                    If an admin account with that username or email exists, a password reset link has been emailed to that address.
+                  </p>
+                </div>
+                <button className="fp-btn-primary" onClick={closeForgotModal}>Back to Sign In</button>
+              </>)}
+
+              {fpStep === "reset-form" && (<>
+                {fpError && <div className="fp-error"><AlertCircle size={14}/> {fpError}</div>}
+                <div className="fp-field">
+                  <label className="fp-label">New Password</label>
+                  <div className="fp-input-wrap">
+                    <Lock size={16} className="fp-input-icon"/>
+                    <input
+                      className="fp-input"
+                      type={fpShowPass ? "text" : "password"}
+                      placeholder="Min. 6 characters"
+                      value={fpNewPass}
+                      onChange={(e) => setFpNewPass(e.target.value)}
+                      style={{ paddingRight: 40 }}
+                    />
+                    <button type="button" className="fp-eye-btn" onClick={() => setFpShowPass((v) => !v)}>
+                      {fpShowPass ? <EyeOff size={15}/> : <Eye size={15}/>}
+                    </button>
+                  </div>
+                </div>
+                <div className="fp-field">
+                  <label className="fp-label">Confirm Password</label>
+                  <div className="fp-input-wrap">
+                    <Lock size={16} className="fp-input-icon"/>
+                    <input
+                      className="fp-input"
+                      type={fpShowPass ? "text" : "password"}
+                      placeholder="Re-enter password"
+                      value={fpConfirm}
+                      onChange={(e) => setFpConfirm(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleResetSubmit()}
+                    />
+                  </div>
+                </div>
+                <button className={`fp-btn-primary${fpLoading ? " loading" : ""}`} onClick={handleResetSubmit} disabled={fpLoading}>
+                  {fpLoading ? <RefreshCcw className="spinner" size={16}/> : "Reset Password"}
+                </button>
+              </>)}
+
+              {fpStep === "reset-done" && (<>
+                <div className="fp-info-box fp-info-box--success">
+                  <CheckCircle size={32} color="#059669" className="fp-info-center-icon"/>
+                  <p className="fp-info-text fp-info-center">
+                    Your password has been reset. You can now sign in with your new password.
+                  </p>
+                </div>
+                <button className="fp-btn-primary" onClick={closeForgotModal}>Sign In</button>
+              </>)}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
