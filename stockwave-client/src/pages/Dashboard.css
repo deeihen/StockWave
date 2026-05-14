@@ -177,6 +177,13 @@
   display: grid;
   grid-template-columns: 1.5fr 0.8fr;
   gap: 24px;
+  align-items: start;
+}
+
+.overview-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .overview-hero {
@@ -341,6 +348,7 @@
 }
 
 .timeline { display: flex; flex-direction: column; gap: 12px; }
+.timeline { max-height: 260px; overflow-y: auto; padding-right: 6px; }
 .timeline-item { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; }
 .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
 .timeline-dot.out { background: var(--accent-purple); }

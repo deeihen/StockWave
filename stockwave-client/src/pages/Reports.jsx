@@ -102,8 +102,8 @@ export default function Reports({ exportSignal = 0 }) {
 
   // Derived stats
   const totalAdded = stockMovement.reduce((s, m) => s + m.added, 0);
-  const totalRemoved = stockMovement.reduce((s, m) => s + m.removed, 0);
-  const netChange = totalAdded - totalRemoved;
+  const totalSold = stockMovement.reduce((s, m) => s + m.sold, 0);
+  const netChange = totalAdded - totalSold;
 
   useEffect(() => {
     if (exportSignal > lastExportRef.current) {
@@ -194,9 +194,9 @@ export default function Reports({ exportSignal = 0 }) {
             <span className="rep-change down">↓ This month</span>
           </div>
           <h3 className="rep-stat-value">
-            {summary?.itemsRemovedThisMonth ?? "—"}
+            {summary?.itemsSoldThisMonth ?? "—"}
           </h3>
-          <p className="rep-stat-label">Items Removed</p>
+          <p className="rep-stat-label">Items Sold</p>
         </div>
 
         <div className="rep-stat-card" style={{ animationDelay: "180ms" }}>
@@ -230,7 +230,7 @@ export default function Reports({ exportSignal = 0 }) {
             <div className="rep-chart-card wide">
               <div className="rep-chart-header">
                 <div>
-                  <h3 className="rep-chart-title">Stock In vs Out</h3>
+                  <h3 className="rep-chart-title">Stock In vs Sales</h3>
                   <p className="rep-chart-sub">Monthly comparison</p>
                 </div>
               </div>
@@ -243,14 +243,16 @@ export default function Reports({ exportSignal = 0 }) {
                   <BarChart
                     data={stockMovement}
                     margin={{ top: 5, right: 5, left: 10, bottom: 0 }}
+                    barCategoryGap="30%"
+                    barGap={6}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(34, 211, 238, 0.08)" }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
-                    <Bar dataKey="added" name="Added" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={24} />
-                    <Bar dataKey="removed" name="Removed" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                    <Bar dataKey="added" name="Added" fill="#059669" radius={[4, 4, 0, 0]} barSize={22} />
+                    <Bar dataKey="sold" name="Sold" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={22} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -305,8 +307,8 @@ export default function Reports({ exportSignal = 0 }) {
           <div className="rep-chart-card full">
             <div className="rep-chart-header">
               <div>
-                <h3 className="rep-chart-title">Top Moving Products</h3>
-                <p className="rep-chart-sub">Most activity by transaction count</p>
+                <h3 className="rep-chart-title">Top Selling Products</h3>
+                <p className="rep-chart-sub">Most sales by units sold</p>
               </div>
             </div>
             {topProducts.length === 0 ? (
@@ -315,7 +317,7 @@ export default function Reports({ exportSignal = 0 }) {
               <table className="rep-table">
                 <thead>
                   <tr>
-                    <th>#</th><th>Product</th><th>Category</th><th>Total Moved</th><th>Stock</th>
+                    <th>#</th><th>Product</th><th>Category</th><th>Total Sold</th><th>Stock</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -328,9 +330,9 @@ export default function Reports({ exportSignal = 0 }) {
                         <div className="turnover-wrap">
                           <div className="turnover-bar-bg">
                             <div className="turnover-bar-fill"
-                              style={{ width: `${Math.min((p.totalMoved / (topProducts[0]?.totalMoved || 1)) * 100, 100)}%` }} />
+                              style={{ width: `${Math.min((p.totalSold / (topProducts[0]?.totalSold || 1)) * 100, 100)}%` }} />
                           </div>
-                          <span className="turnover-pct">{p.totalMoved}</span>
+                          <span className="turnover-pct">{p.totalSold}</span>
                         </div>
                       </td>
                       <td className="stock-cell">{p.stock}</td>
@@ -349,8 +351,8 @@ export default function Reports({ exportSignal = 0 }) {
           <div className="rep-chart-card full">
             <div className="rep-chart-header">
               <div>
-                <h3 className="rep-chart-title">Stock Movement Detail</h3>
-                <p className="rep-chart-sub">Items added and removed over time</p>
+                <h3 className="rep-chart-title">Stock vs Sales Detail</h3>
+                <p className="rep-chart-sub">Items added and sold over time</p>
               </div>
             </div>
             {stockMovement.length === 0 ? (
@@ -373,7 +375,7 @@ export default function Reports({ exportSignal = 0 }) {
                   <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Area type="monotone" dataKey="added" name="Added" stroke="#059669" strokeWidth={2} fill="url(#addedGrad)" />
-                  <Area type="monotone" dataKey="removed" name="Removed" stroke="#ef4444" strokeWidth={2} fill="url(#removedGrad)" />
+                  <Area type="monotone" dataKey="sold" name="Sold" stroke="#6366f1" strokeWidth={2} fill="url(#removedGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -382,7 +384,7 @@ export default function Reports({ exportSignal = 0 }) {
           <div className="stock-summary-grid">
             {[
               { label: "Total Added", value: totalAdded, color: "#059669", bg: "#ecfdf5" },
-              { label: "Total Removed", value: totalRemoved, color: "#ef4444", bg: "#fef2f2" },
+              { label: "Total Sold", value: totalSold, color: "#6366f1", bg: "#eef2ff" },
               { label: "Net Change", value: (netChange >= 0 ? "+" : "") + netChange, color: "#3b82f6", bg: "#eff6ff" },
               { label: "Low Items", value: summary?.lowStock ?? 0, color: "#f59e0b", bg: "#fffbeb" },
             ].map((s, i) => (

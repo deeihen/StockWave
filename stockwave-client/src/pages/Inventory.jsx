@@ -9,8 +9,6 @@ import {
   Edit2,
   PlusCircle,
   X,
-  ChevronLeft,
-  ChevronRight,
   Package,
   AlertCircle
 } from "lucide-react";
@@ -209,9 +207,7 @@ export default function Inventory({ openAddSignal = 0 }) {
   const [selected, setSelected] = useState([]);
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
-  const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState(null);
-  const PER_PAGE = 8;
   const { run, isRunning } = useActionGuard(500);
   const saving = isRunning("add") || isRunning("edit");
   const deleting = isRunning("delete");
@@ -257,11 +253,9 @@ export default function Inventory({ openAddSignal = 0 }) {
       return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
     });
 
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const visibleProducts = filtered;
 
   const handleSort = (col) => {
-    setPage(1);
     if (sortBy === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortBy(col); setSortDir("asc"); }
   };
@@ -278,7 +272,6 @@ export default function Inventory({ openAddSignal = 0 }) {
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         await createProduct({ ...data, performedBy: user.username || "Admin" });
         await fetchProducts();
-        setPage(1); // Reset to page 1 on add
         setModal(null);
       } catch { alert("Failed to add product."); }
     });
@@ -339,7 +332,7 @@ export default function Inventory({ openAddSignal = 0 }) {
   };
 
   const toggleAll = () => {
-    const pageIds = paginated.map(p => p.id);
+    const pageIds = visibleProducts.map(p => p.id);
     const allSelected = pageIds.every(id => selected.includes(id));
     setSelected(allSelected ? selected.filter(id => !pageIds.includes(id)) : [...new Set([...selected, ...pageIds])]);
   };
@@ -405,22 +398,17 @@ export default function Inventory({ openAddSignal = 0 }) {
             <div className="search-box">
               <Search size={16} color="#7b8aa3" />
               <input className="search-inp" placeholder="Search products, categories, or SKUs"
-                value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                value={search} onChange={e => { setSearch(e.target.value); }} />
             </div>
             <div className="filter-group">
               <select className="filter-sel" value={filterCat}
-                onChange={e => { setFilterCat(e.target.value); setPage(1); }}>
+                onChange={e => { setFilterCat(e.target.value); }}>
                 {categories.map(c => <option key={c}>{c}</option>)}
               </select>
               <select className="filter-sel" value={filterStatus}
-                onChange={e => { setFilterStatus(e.target.value); setPage(1); }}>
+                onChange={e => { setFilterStatus(e.target.value); }}>
                 {statuses.map(s => <option key={s}>{s}</option>)}
               </select>
-            </div>
-            <div className="filter-actions">
-              <button className="filter-chip"><Package size={14} /> Warehouses</button>
-              <button className="filter-chip"><AlertCircle size={14} /> Exceptions</button>
-              <button className="filter-chip">Advanced Filters</button>
             </div>
             {selected.length > 0 && isAdmin && (
               <button className="btn-bulk-delete" onClick={handleBulkDelete} disabled={bulkDeleting}>
@@ -430,12 +418,12 @@ export default function Inventory({ openAddSignal = 0 }) {
           </div>
 
           <div className="inv-card-list">
-            {paginated.length === 0 ? (
+            {visibleProducts.length === 0 ? (
               <div className="inv-card empty">
                 <Package size={48} color="#e5e7eb" />
                 <p>No products found. Click "Add Product" to get started.</p>
               </div>
-            ) : paginated.map(p => (
+            ) : visibleProducts.map(p => (
               <div key={p.id} className={`inv-card ${selected.includes(p.id) ? "selected" : ""}`}>
                 <div className="inv-card-top">
                   <div>
@@ -476,7 +464,7 @@ export default function Inventory({ openAddSignal = 0 }) {
                 <tr>
                   <th className="th-check">
                     <input type="checkbox"
-                      checked={paginated.length > 0 && paginated.every(p => selected.includes(p.id))}
+                        checked={visibleProducts.length > 0 && visibleProducts.every(p => selected.includes(p.id))}
                       onChange={toggleAll} />
                   </th>
                   <th></th>
@@ -490,7 +478,7 @@ export default function Inventory({ openAddSignal = 0 }) {
                 </tr>
               </thead>
               <tbody>
-                {paginated.length === 0 ? (
+                {visibleProducts.length === 0 ? (
                   <tr>
                     <td colSpan="9" className="empty-row">
                       <div className="empty-state">
@@ -499,7 +487,7 @@ export default function Inventory({ openAddSignal = 0 }) {
                       </div>
                     </td>
                   </tr>
-                ) : paginated.map(p => (
+                ) : visibleProducts.map(p => (
                   <Fragment key={p.id}>
                     <tr className={selected.includes(p.id) ? "row-selected" : ""}>
                       <td className="td-check">
@@ -571,20 +559,6 @@ export default function Inventory({ openAddSignal = 0 }) {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="pagination">
-              <span className="page-info">
-                Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length}
-              </span>
-              <div className="page-btns">
-                <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={16} /></button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                  <button key={n} className={`page-btn ${n === page ? "active" : ""}`} onClick={() => setPage(n)}>{n}</button>
-                ))}
-                <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={16} /></button>
-              </div>
-            </div>
-          )}
         </>
       )}
 
