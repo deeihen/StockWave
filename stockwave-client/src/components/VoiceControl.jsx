@@ -3,7 +3,7 @@ import { useVoice } from "../hooks/useVoice";
 import "./VoiceControl.css";
 import { Mic, MicOff } from "lucide-react";
 
-export default function VoiceControl({ onCommand, active = false, onToggle }) {
+export default function VoiceControl({ onCommand, active = false, onToggle, panelOffset = "default" }) {
   const { listening, transcript, startListening, stopListening, supported, error } =
     useVoice({ onCommand });
 
@@ -34,7 +34,7 @@ export default function VoiceControl({ onCommand, active = false, onToggle }) {
       </button>
 
       {(listening || transcript) && (
-        <div className="voice-panel">
+        <div className={`voice-panel ${panelOffset === "left" ? "offset-left" : ""}`}>
           <div className="voice-visualizer">
             <div className="mic-icon-wrap">
               {listening && <div className="mic-pulse" />}
@@ -65,6 +65,9 @@ export default function VoiceControl({ onCommand, active = false, onToggle }) {
               <li>"Go to inventory"</li>
               <li>"Go to dashboard"</li>
               <li>"Add product"</li>
+              <li>"Voice off"</li>
+              <li>"Gesture on"</li>
+              <li>"Gesture off"</li>
               <li>"Logout"</li>
             </ul>
           </div>

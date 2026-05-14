@@ -67,10 +67,23 @@ export default function Dashboard({ onLogout }) {
 
   const isAdmin = user.role === "Admin";
   const { title, sub } = pageTitles[activePage] || pageTitles.dashboard;
+  const voicePanelOpen = voiceActive;
+  const gesturePanelOpen = gestureActive;
+  const dualPanelsOpen = voicePanelOpen && gesturePanelOpen;
 
   const handleVoiceCommand = (command, value) => {
-    if (command === "voice_off") { setVoiceActive(false); return; }
-    if (command === "gesture_on") { setGestureActive(true); return; }
+    if (command === "voice_off") {
+      setVoiceActive(false);
+      return;
+    }
+    if (command === "gesture_on") {
+      setGestureActive(true);
+      return;
+    }
+    if (command === "gesture_off") {
+      setGestureActive(false);
+      return;
+    }
     if (command === "navigate") {
       const item = navItems.find(i => i.id === value);
       if (item && (!item.adminOnly || isAdmin)) setActivePage(value);
@@ -85,11 +98,20 @@ export default function Dashboard({ onLogout }) {
       open_palm: "dashboard",
       peace: "inventory",
       point_up: "reports",
-      thumbs_up: "users",
       fist: "settings",
     };
-    if (gesture === "voice_start") { setVoiceActive(true); return; }
-    if (gesture === "stop_camera") { setGestureActive(false); return; }
+    if (gesture === "voice_start") {
+      setVoiceActive(true);
+      return;
+    }
+    if (gesture === "thumbs_up") {
+      setVoiceActive(false);
+      return;
+    }
+    if (gesture === "stop_camera") {
+      setGestureActive(false);
+      return;
+    }
     const page = gestureMap[gesture];
     const item = navItems.find(i => i.id === page);
     if (page && item && (!item.adminOnly || isAdmin)) setActivePage(page);
@@ -177,11 +199,13 @@ export default function Dashboard({ onLogout }) {
               onCommand={handleVoiceCommand}
               active={voiceActive}
               onToggle={setVoiceActive}
+              panelOffset={dualPanelsOpen ? "left" : "default"}
             />
             <GestureControl
               onGesture={handleGestureCommand}
               active={gestureActive}
               onToggle={setGestureActive}
+              panelOffset={dualPanelsOpen ? "right" : "default"}
             />
             <Notifications />
           </div>

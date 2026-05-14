@@ -22,6 +22,7 @@ export function useVoice({ onCommand }) {
 
     if (cmd.includes("voice off") || cmd.includes("stop voice")) onCommand("voice_off");
     else if (cmd.includes("gesture on") || cmd.includes("start gesture")) onCommand("gesture_on");
+    else if (cmd.includes("gesture off") || cmd.includes("stop gesture")) onCommand("gesture_off");
     else if (cmd.includes("export"))            onCommand("export_report");
     else if (cmd.includes("dashboard"))         onCommand("navigate", "dashboard");
     else if (cmd.includes("inventory"))         onCommand("navigate", "inventory");

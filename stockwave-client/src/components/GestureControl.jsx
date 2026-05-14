@@ -7,13 +7,13 @@ const GESTURE_LABELS = {
   open_palm: { icon: Hand, label: "Open Palm",  action: "Dashboard" },
   peace:     { icon: Hand, label: "Peace Sign", action: "Inventory" },
   point_up:  { icon: Hand, label: "Point Up",   action: "Reports"   },
-  thumbs_up: { icon: ThumbsUp, label: "Thumbs Up",  action: "Users"     },
+  thumbs_up: { icon: ThumbsUp, label: "Thumbs Up",  action: "Voice Off"     },
   fist:      { icon: Hand, label: "Fist",        action: "Settings"  },
   voice_start: { icon: Mic, label: "3 Fingers", action: "Voice On" },
   stop_camera: { icon: CameraOff, label: "Pinky Up", action: "Stop Camera" },
 };
 
-export default function GestureControl({ onGesture, active = false, onToggle }) {
+export default function GestureControl({ onGesture, active = false, onToggle, panelOffset = "default" }) {
   const [lastGesture, setLastGesture] = useState(null);
   const timeoutRef = useRef(null);
 
@@ -56,7 +56,7 @@ export default function GestureControl({ onGesture, active = false, onToggle }) 
 
       {/* ── Panel ── */}
       {active && (
-        <div className="gesture-panel">
+        <div className={`gesture-panel ${panelOffset === "right" ? "offset-right" : ""}`}>
           {/* Webcam preview */}
           <div className="gesture-video-wrap">
             <video
