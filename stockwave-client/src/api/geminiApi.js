@@ -2,6 +2,11 @@ import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
+export const MAX_INPUT_CHARS = 400;
+export const MAX_REQUESTS_PER_WINDOW = 5;
+export const RATE_LIMIT_WINDOW_MS = 10_000;
+const MAX_HISTORY_MESSAGES = 16;
+
 const SYSTEM_INSTRUCTION = `You are WaveAI, an intelligent assistant built into StockWave —
 an inventory and operations management system. You ONLY answer questions related to:
 inventory management, stock levels, restock suggestions, product tracking,
@@ -50,19 +55,76 @@ export function isInventoryRelated(text) {
 }
 
 let history = [];
+let requestTimestamps = [];
+
+function normalizeInput(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isRateLimited() {
+  const now = Date.now();
+  requestTimestamps = requestTimestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (requestTimestamps.length >= MAX_REQUESTS_PER_WINDOW) return true;
+  requestTimestamps.push(now);
+  return false;
+}
+
+function looksLikeSqlAttack(text) {
+  const lower = text.toLowerCase();
+  const isDefensiveIntent = /(prevent|secure|sanitize|validate|avoid|protect|mitigate)/.test(lower);
+
+  // Guard obvious SQLi payload patterns while allowing defensive/security questions.
+  const suspicious = [
+    /\bunion\s+select\b/i,
+    /\bor\s+1\s*=\s*1\b/i,
+    /\b(drop|truncate|alter)\s+table\b/i,
+    /\binformation_schema\b/i,
+    /\bexec\s*\(/i,
+    /\bxp_cmdshell\b/i,
+    /--|\/\*|\*\//,
+    /;\s*(drop|delete|update|insert|select)\b/i,
+    /\bsleep\s*\(/i,
+  ].some((rx) => rx.test(lower));
+
+  return suspicious && !isDefensiveIntent;
+}
 
 export function resetChat() {
   history = [];
+  requestTimestamps = [];
 }
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
 export async function askWaveAI(userMessage) {
-  if (!isInventoryRelated(userMessage)) {
+  const cleanedMessage = normalizeInput(userMessage);
+
+  if (!cleanedMessage) {
+    return "Please enter a question so I can help.";
+  }
+
+  if (cleanedMessage.length > MAX_INPUT_CHARS) {
+    return `⚠️ Please keep your message under ${MAX_INPUT_CHARS} characters.`;
+  }
+
+  if (isRateLimited()) {
+    return "⏱️ Too many requests too quickly. Please wait a few seconds and try again.";
+  }
+
+  if (looksLikeSqlAttack(cleanedMessage)) {
+    return "⚠️ Potentially malicious SQL input detected. Please ask a safe inventory or operations question.";
+  }
+
+  if (!isInventoryRelated(cleanedMessage)) {
     return "⚠️ I can only help with inventory and operations topics — things like stock levels, restocking, product tracking, sales trends, and warehouse ops. Please ask something related to those areas!";
   }
 
-  history.push({ role: "user", parts: [{ text: userMessage }] });
+  history.push({ role: "user", parts: [{ text: cleanedMessage }] });
+  if (history.length > MAX_HISTORY_MESSAGES) {
+    history = history.slice(-MAX_HISTORY_MESSAGES);
+  }
 
   for (let m = 0; m < MODELS.length; m++) {
     const model = MODELS[m];
@@ -76,6 +138,9 @@ export async function askWaveAI(userMessage) {
 
       const reply = response.text;
       history.push({ role: "model", parts: [{ text: reply }] });
+      if (history.length > MAX_HISTORY_MESSAGES) {
+        history = history.slice(-MAX_HISTORY_MESSAGES);
+      }
       console.log(`WaveAI: success with model "${model}"`);
       return reply;
 
