@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import "./Login.css";
-import { loginUser, forgotPassword, resetPassword } from "../api/stockwaveApi";
+import { loginUser, forgotPassword, resetPassword, loginWithQr } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
 import {
   User as UserIcon,
@@ -16,6 +16,7 @@ import {
   CheckCircle,
   ArrowLeft,
   KeyRound,
+  Upload,                      // ← NEW
 } from "lucide-react";
 
 export default function Login({ onLoginSuccess, onGoRegister }) {
@@ -39,6 +40,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
   const [qrActive, setQrActive] = useState(false);
   const [qrError, setQrError] = useState("");
   const videoRef = useRef(null);
+  const fileInputRef = useRef(null); // ← NEW
   const streamRef = useRef(null);
   const rafRef = useRef(null);
   const scanIntervalRef = useRef(null);
@@ -159,16 +161,94 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
 
   const handleQrLogin = useCallback(
     async (rawValue) => {
+      const trimmed = rawValue.trim();
+
+      // NEW: Support for permanent WaveQR tokens
+      if (trimmed.startsWith("waveqr_")) {
+        await run("login", async () => {
+          setLoading(true);
+          setQrError("");
+          try {
+            const res = await loginWithQr(trimmed);
+            localStorage.setItem("token", res.data.token);
+            localStorage.setItem("user", JSON.stringify(res.data.user));
+            if (onLoginSuccess) onLoginSuccess();
+          } catch (err) {
+            setQrError(err.response?.data?.message || "Invalid or expired QR code.");
+          } finally {
+            setLoading(false);
+          }
+        });
+        return;
+      }
+
+      // Legacy support for username:password format
       const creds = parseQrCredentials(rawValue);
       if (!creds) {
-        setQrError("QR code not recognized. Use username:password or stockwave://login?u=...&p=...");
+        setQrError("QR code not recognized.");
         return;
       }
 
       await loginWithCredentials(creds.username, creds.password, "qr");
     },
-    [parseQrCredentials, loginWithCredentials]
+    [parseQrCredentials, loginWithCredentials, run, onLoginSuccess]
   );
+
+  // Handle uploaded QR code file
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setQrError("");
+    setLoading(true);
+
+    try {
+      const jsqr = window.jsQR || (await (async () => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+        script.async = true;
+        const p = new Promise((res, rej) => {
+          script.onload = () => res(window.jsQR);
+          script.onerror = rej;
+        });
+        document.head.appendChild(script);
+        return p;
+      })());
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsqr(imageData.data, imageData.width, imageData.height);
+          
+          if (code && code.data) {
+            handleQrLogin(code.data);
+          } else {
+            setQrError("No QR code found in this image.");
+            setLoading(false);
+          }
+        };
+        img.onerror = () => {
+          setQrError("Failed to load image file.");
+          setLoading(false);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setQrError("Error processing QR image.");
+      setLoading(false);
+    }
+    
+    // Reset input so same file can be uploaded again
+    e.target.value = "";
+  };
 
   // QR Scanning Effect
   useEffect(() => {
@@ -613,6 +693,16 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                 <button type="button" className="qr-btn" onClick={toggleQr} disabled={loading || isRunning("qr-toggle") || isRunning("login")}>
                   {qrActive ? "Stop scan" : <><Camera size={16} style={{marginRight: 6}}/> Start scan</>}
                 </button>
+                <button type="button" className="qr-btn qr-btn-upload" onClick={() => fileInputRef.current?.click()} disabled={loading || isRunning("login")}>
+                  <Upload size={16} style={{marginRight: 6}}/> Upload QR
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept="image/*"
+                  style={{ display: "none" }}
+                />
                 {qrActive && <span className="qr-status">Scanning...</span>}
               </div>
               <p className="qr-hint">

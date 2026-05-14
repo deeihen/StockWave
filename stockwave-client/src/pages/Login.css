@@ -433,3 +433,15 @@
 .fp-info-muted { opacity: 0.85; margin-top: 8px; }
 
 @media (max-width: 900px) { .login-left { display: none; } .login-right { padding: 24px; } }
+
+.qr-btn-upload {
+  background: white;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  margin-left: 12px;
+}
+.qr-btn-upload:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+

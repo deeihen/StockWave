@@ -937,3 +937,102 @@
   border-radius: 8px;
   border: 1px solid var(--border);
 }
+/* -- QR Login Code Section -- */
+.qr-settings-flex {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  padding: 16px 0;
+}
+
+.qr-settings-preview {
+  background: white;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 232px;
+  min-height: 232px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.qr-img-large {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+}
+
+.qr-placeholder-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.qr-settings-info {
+  flex: 1;
+}
+
+.qr-info-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-main);
+  margin-bottom: 16px;
+}
+
+.qr-info-list {
+  padding-left: 20px;
+  margin-bottom: 24px;
+}
+
+.qr-info-list li {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  list-style-type: disc;
+}
+
+.btn-download-qr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: white;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-download-qr:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+}
+
+.btn-download-qr:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .qr-settings-flex {
+    flex-direction: column;
+    text-align: center;
+  }
+  .qr-info-list {
+    display: inline-block;
+    text-align: left;
+  }
+  .btn-download-qr {
+    margin: 0 auto;
+  }
+}
