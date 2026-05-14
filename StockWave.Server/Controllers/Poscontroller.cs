@@ -60,7 +60,7 @@ namespace StockWave.Server.Controllers
                 {
                     UserId = userId,
                     ProductId = product.Id,
-                    Action = "Sold",
+                    Action = "Sale",
                     Quantity = item.Quantity,
                     PerformedBy = dto.CashierName ?? "POS",
                     Timestamp = DateTime.UtcNow

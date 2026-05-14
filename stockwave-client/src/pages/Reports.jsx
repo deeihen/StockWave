@@ -31,8 +31,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         <p className="tooltip-label">{label}</p>
         {payload.map((p, i) => (
           <p key={i} className="tooltip-value" style={{ color: p.color || p.fill }}>
-            {p.name}: {typeof p.value === "number" && p.value > 999
-              ? "₱" + p.value.toLocaleString() : p.value}
+            {p.name}: {"₱" + (typeof p.value === "number" ? p.value.toLocaleString() : p.value)}
           </p>
         ))}
       </div>
@@ -95,15 +94,15 @@ export default function Reports({ exportSignal = 0 }) {
 
   const tabs = [
     { id: "overview", label: "Overview" },
-    { id: "stock", label: "Stock Movement" },
+    { id: "stock", label: "Profit & Revenue" },
     { id: "value", label: "Stock Value" },
     { id: "alerts", label: "Low Stock" },
   ];
 
-  // Derived stats
-  const totalAdded = stockMovement.reduce((s, m) => s + m.added, 0);
-  const totalSold = stockMovement.reduce((s, m) => s + m.sold, 0);
-  const netChange = totalAdded - totalSold;
+  // Derived stats from revenue and estimated profit data
+  const totalRevenue = stockMovement.reduce((s, m) => s + (m.revenue ?? 0), 0);
+  const totalProfit  = stockMovement.reduce((s, m) => s + (m.profit  ?? 0), 0);
+  const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : "0.0";
 
   useEffect(() => {
     if (exportSignal > lastExportRef.current) {
@@ -194,9 +193,9 @@ export default function Reports({ exportSignal = 0 }) {
             <span className="rep-change down">↓ This month</span>
           </div>
           <h3 className="rep-stat-value">
-            {summary?.itemsSoldThisMonth ?? "—"}
+            {summary?.itemsSoldThisMonth ?? summary?.itemsRemovedThisMonth ?? "—"}
           </h3>
-          <p className="rep-stat-label">Items Sold</p>
+          <p className="rep-stat-label">Sales</p>
         </div>
 
         <div className="rep-stat-card" style={{ animationDelay: "180ms" }}>
@@ -226,12 +225,12 @@ export default function Reports({ exportSignal = 0 }) {
       {activeTab === "overview" && (
         <div className="tab-content">
           <div className="charts-row">
-            {/* Stock In vs Out */}
+            {/* Profit vs Revenue */}
             <div className="rep-chart-card wide">
               <div className="rep-chart-header">
                 <div>
-                  <h3 className="rep-chart-title">Stock In vs Sales</h3>
-                  <p className="rep-chart-sub">Monthly comparison</p>
+                  <h3 className="rep-chart-title">Profit vs Revenue</h3>
+                  <p className="rep-chart-sub">Monthly sales revenue and estimated profit (₱)</p>
                 </div>
               </div>
               {stockMovement.length === 0 ? (
@@ -248,11 +247,16 @@ export default function Reports({ exportSignal = 0 }) {
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tickFormatter={(v) => "₱" + (v >= 1000 ? (v / 1000).toFixed(1) + "k" : v)}
+                      tick={{ fontSize: 11, fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(34, 211, 238, 0.08)" }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
-                    <Bar dataKey="added" name="Added" fill="#059669" radius={[4, 4, 0, 0]} barSize={22} />
-                    <Bar dataKey="sold" name="Sold" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={22} />
+                    <Bar dataKey="revenue" name="Revenue" fill="#059669" radius={[4, 4, 0, 0]} barSize={22} />
+                    <Bar dataKey="profit"  name="Profit"  fill="#6366f1" radius={[4, 4, 0, 0]} barSize={22} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -345,14 +349,14 @@ export default function Reports({ exportSignal = 0 }) {
         </div>
       )}
 
-      {/* ── STOCK MOVEMENT TAB ── */}
+      {/* ── PROFIT & REVENUE TAB ── */}
       {activeTab === "stock" && (
         <div className="tab-content">
           <div className="rep-chart-card full">
             <div className="rep-chart-header">
               <div>
-                <h3 className="rep-chart-title">Stock vs Sales Detail</h3>
-                <p className="rep-chart-sub">Items added and sold over time</p>
+                <h3 className="rep-chart-title">Profit vs Revenue Detail</h3>
+                <p className="rep-chart-sub">Monthly revenue and profit over time (₱)</p>
               </div>
             </div>
             {stockMovement.length === 0 ? (
@@ -361,21 +365,27 @@ export default function Reports({ exportSignal = 0 }) {
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={stockMovement} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="addedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#059669" stopOpacity={0.1} />
                       <stop offset="95%" stopColor="#059669" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="removedGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.05} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    tickFormatter={(v) => "₱" + (v >= 1000 ? (v / 1000).toFixed(1) + "k" : v)}
+                    tick={{ fontSize: 11, fontWeight: 600 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="added" name="Added" stroke="#059669" strokeWidth={2} fill="url(#addedGrad)" />
-                  <Area type="monotone" dataKey="sold" name="Sold" stroke="#6366f1" strokeWidth={2} fill="url(#removedGrad)" />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
+                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#059669" strokeWidth={2} fill="url(#revenueGrad)" />
+                  <Area type="monotone" dataKey="profit"  name="Estimated Profit"  stroke="#6366f1" strokeWidth={2} fill="url(#profitGrad)"  />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -383,10 +393,10 @@ export default function Reports({ exportSignal = 0 }) {
 
           <div className="stock-summary-grid">
             {[
-              { label: "Total Added", value: totalAdded, color: "#059669", bg: "#ecfdf5" },
-              { label: "Total Sold", value: totalSold, color: "#6366f1", bg: "#eef2ff" },
-              { label: "Net Change", value: (netChange >= 0 ? "+" : "") + netChange, color: "#3b82f6", bg: "#eff6ff" },
-              { label: "Low Items", value: summary?.lowStock ?? 0, color: "#f59e0b", bg: "#fffbeb" },
+              { label: "Total Revenue",  value: "₱" + totalRevenue.toLocaleString(), color: "#059669", bg: "#ecfdf5" },
+              { label: "Total Profit",   value: "₱" + totalProfit.toLocaleString(),  color: "#6366f1", bg: "#eef2ff" },
+              { label: "Profit Margin",  value: profitMargin + "%",                  color: "#3b82f6", bg: "#eff6ff" },
+              { label: "Low Items",      value: summary?.lowStock ?? 0,              color: "#f59e0b", bg: "#fffbeb" },
             ].map((s, i) => (
               <div key={i} className="stock-sum-card" style={{ background: s.bg }}>
                 <h3 className="stock-sum-value" style={{ color: s.color }}>{s.value}</h3>

@@ -164,7 +164,7 @@ namespace StockWave.Server.Controllers
                 {
                     UserId = GetUserId(),
                     ProductId = product.Id,
-                    Action = diff > 0 ? "Added" : "Removed",
+                    Action = diff > 0 ? "Added" : "Sale",
                     Quantity = Math.Abs(diff),
                     PerformedBy = dto.PerformedBy ?? "Admin",
                     Timestamp = DateTime.UtcNow
