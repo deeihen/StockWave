@@ -29,5 +29,9 @@ namespace StockWave.Server.Models
         // Auto-generated unique identifier e.g. ".waveKx9m"
         // Displayed in staff list as their workspace tag
         public string Identifier { get; set; } = string.Empty;
+
+        // Forgot-password (Admin accounts only)
+        public string? PasswordResetToken { get; set; }
+        public DateTime? ResetTokenExpiry { get; set; }
     }
 }

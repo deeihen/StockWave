@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Sparkles, Send, X, Minus, MessageSquare, Trash2 } from "lucide-react";
 import { askWaveAI, resetChat, MAX_INPUT_CHARS } from "../api/geminiApi";
+import { getProducts, getLowStock, getReportSummary } from "../api/stockwaveApi";
 import "./WaveAIChat.css";
 
 const STORAGE_KEY = "waveai_chat_history";
@@ -9,6 +10,74 @@ const WELCOME = {
   text: "Hi! I'm WaveAI — your inventory ops assistant. Ask me about stock levels, restocking, sales trends, or anything warehouse-related.",
   time: new Date().toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }),
 };
+
+const PRODUCT_QUERY_RE = /\b(products?|items?|inventory|catalog|sku|what do i have|what are my|show my|list my)\b/i;
+const LOW_STOCK_QUERY_RE = /\b(low stock|running low|out of stock|restock|reorder|near empty)\b/i;
+const SUMMARY_QUERY_RE = /\b(summary|overview|report|reports|sales trend|stock value|how many)\b/i;
+
+function normalizeText(value) {
+  return String(value ?? "").trim();
+}
+
+function formatProduct(product) {
+  const stock = Number.isFinite(product.stock) ? product.stock : Number(product.stock ?? 0);
+  const price = Number.isFinite(product.price) ? product.price : Number(product.price ?? 0);
+  return {
+    id: product.id,
+    name: normalizeText(product.name),
+    category: normalizeText(product.category),
+    stock,
+    unit: normalizeText(product.unit || "pcs"),
+    status: normalizeText(product.status || (stock === 0 ? "Out of Stock" : stock <= 10 ? "Low Stock" : "In Stock")),
+    price,
+    updatedAt: product.updatedAt || product.createdAt || null,
+  };
+}
+
+function buildGroundingContext({ products = [], lowStock = [], summary = null, recentActivity = [] }) {
+  return {
+    scope: "Current workspace account only",
+    products: products.map(formatProduct),
+    lowStock: lowStock.map(formatProduct),
+    summary,
+    recentActivity,
+  };
+}
+
+async function loadGroundingContext(question) {
+  const lowerQuestion = question.toLowerCase();
+  const wantsProducts = PRODUCT_QUERY_RE.test(lowerQuestion);
+  const wantsLowStock = LOW_STOCK_QUERY_RE.test(lowerQuestion);
+  const wantsSummary = SUMMARY_QUERY_RE.test(lowerQuestion);
+
+  if (!wantsProducts && !wantsLowStock && !wantsSummary) {
+    return null;
+  }
+
+  const [productsResult, lowStockResult, summaryResult] = await Promise.allSettled([
+    wantsProducts ? getProducts() : Promise.resolve(null),
+    wantsLowStock ? getLowStock() : Promise.resolve(null),
+    wantsSummary ? getReportSummary() : Promise.resolve(null),
+  ]);
+
+  const requestedFetchFailed =
+    (wantsProducts && productsResult.status === "rejected") ||
+    (wantsLowStock && lowStockResult.status === "rejected") ||
+    (wantsSummary && summaryResult.status === "rejected");
+
+  if (requestedFetchFailed) {
+    return {
+      unavailable: true,
+      message: "I couldn't load your current account data just now, so I can't verify that answer safely. Please try again.",
+    };
+  }
+
+  const products = productsResult.status === "fulfilled" && productsResult.value ? productsResult.value.data : [];
+  const lowStock = lowStockResult.status === "fulfilled" && lowStockResult.value ? lowStockResult.value.data : [];
+  const summary = summaryResult.status === "fulfilled" && summaryResult.value ? summaryResult.value.data : null;
+
+  return buildGroundingContext({ products, lowStock, summary });
+}
 
 function loadHistory() {
   try {
@@ -67,7 +136,17 @@ export default function WaveAIChat() {
     setLoading(true);
 
     try {
-      const reply = await askWaveAI(q);
+      const groundingContext = await loadGroundingContext(q);
+      if (groundingContext?.unavailable) {
+        const aiMsg = {
+          role: "ai",
+          text: groundingContext.message,
+          time: new Date().toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }),
+        };
+        setMessages(prev => [...prev, aiMsg]);
+        return;
+      }
+      const reply = await askWaveAI(q, groundingContext ? { groundingContext, strictContextOnly: true } : {});
       const aiMsg = {
         role: "ai",
         text: reply,

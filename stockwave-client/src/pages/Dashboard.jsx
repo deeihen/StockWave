@@ -5,7 +5,6 @@ import GestureControl from "../components/GestureControl";
 import "./Dashboard.css";
 import Inventory from "./Inventory";
 import Reports from "./Reports";
-import Users from "./Users";
 import Settings from "./Settings";
 import Pos from "./Pos";
 import { getReportSummary, getRecentActivity, getLowStock } from "../api/stockwaveApi";
@@ -14,7 +13,6 @@ import {
   LayoutDashboard,
   Package,
   BarChart3,
-  Users as UsersIcon,
   Settings as SettingsIcon,
   LogOut,
   ChevronLeft,
@@ -40,7 +38,6 @@ const pageTitles = {
   inventory: { title: "Inventory", sub: "Manage and track all your products." },
   pos: { title: "Point of Sale", sub: "Fast checkout with live inventory sync." },
   reports: { title: "Reports", sub: "View analytics and stock reports." },
-  users: { title: "Users", sub: "Manage system users and roles." },
   settings: { title: "Settings", sub: "Configure your preferences." },
 };
 
@@ -61,7 +58,6 @@ export default function Dashboard({ onLogout }) {
     { id: "inventory", icon: Package, label: "Inventory" },
     { id: "pos", icon: CreditCard, label: "POS" },
     { id: "reports", icon: BarChart3, label: "Reports" },
-    { id: "users", icon: UsersIcon, label: "Users", adminOnly: true },
     { id: "settings", icon: SettingsIcon, label: "Settings" },
   ];
 
@@ -85,7 +81,6 @@ export default function Dashboard({ onLogout }) {
       open_palm: "dashboard",
       peace: "inventory",
       point_up: "reports",
-      thumbs_up: "users",
       fist: "settings",
     };
     if (gesture === "voice_start") { setVoiceActive(true); return; }
@@ -99,7 +94,6 @@ export default function Dashboard({ onLogout }) {
     if (activePage === "inventory") return <Inventory openAddSignal={openAddSignal} />;
     if (activePage === "pos") return <Pos />;
     if (activePage === "reports") return <Reports exportSignal={exportSignal} />;
-    if (activePage === "users" && isAdmin) return <Users />;
     if (activePage === "settings") return <Settings />;
     return <DashboardHome />;
   };

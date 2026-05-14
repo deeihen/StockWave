@@ -78,6 +78,22 @@ namespace StockWave.Server.Controllers
                 })
                 .ToListAsync();
 
+            var persistedNotifs = await _db.Notifications
+                .Where(n => n.UserId == userId && n.DeletedAt == null && n.Title.StartsWith("passwd-req-"))
+                .OrderByDescending(n => n.CreatedAt)
+                .Select(n => new
+                {
+                    id = n.Title,
+                    type = n.Type,
+                    icon = n.Icon,
+                    title = "Staff Password Request",
+                    message = n.Message,
+                    createdAt = n.CreatedAt,
+                    isRead = n.IsRead,
+                    deletedAt = n.DeletedAt
+                })
+                .ToListAsync();
+
             var allNotifications = lowStockNotifs.Concat(activityNotifs)
                 .Select(n => {
                     var hasState = states.TryGetValue(n.id, out var state);
@@ -93,6 +109,7 @@ namespace StockWave.Server.Controllers
                     };
                 })
                 .Where(n => n.deletedAt == null)
+                .Concat(persistedNotifs)
                 .OrderByDescending(n => n.createdAt)
                 .ToList();
 
@@ -104,6 +121,22 @@ namespace StockWave.Server.Controllers
         public async Task<IActionResult> MarkAsRead(string id)
         {
             var userId = GetUserId();
+
+            if (id.StartsWith("passwd-req-"))
+            {
+                var row = await _db.Notifications
+                    .FirstOrDefaultAsync(n => n.UserId == userId && n.Title == id);
+
+                if (row != null)
+                {
+                    row.IsRead = true;
+                    row.ReadAt = DateTime.UtcNow;
+                }
+
+                await _db.SaveChangesAsync();
+                return Ok(new { message = "Notification marked as read." });
+            }
+
             var existing = await _db.Notifications
                 .FirstOrDefaultAsync(n => n.UserId == userId && n.Title == id);
 
@@ -134,6 +167,15 @@ namespace StockWave.Server.Controllers
             foreach (var id in activeIds.Where(id => !existingIds.Contains(id)))
                 _db.Notifications.Add(new Notification { UserId = userId, Title = id, IsRead = true, ReadAt = DateTime.UtcNow });
 
+            var persistedUnread = await _db.Notifications
+                .Where(n => n.UserId == userId && n.Title.StartsWith("passwd-req-") && !n.IsRead && n.DeletedAt == null)
+                .ToListAsync();
+            foreach (var n in persistedUnread)
+            {
+                n.IsRead = true;
+                n.ReadAt = DateTime.UtcNow;
+            }
+
             await _db.SaveChangesAsync();
             return Ok(new { message = "All notifications marked as read." });
         }
@@ -146,10 +188,18 @@ namespace StockWave.Server.Controllers
             var existing = await _db.Notifications
                 .FirstOrDefaultAsync(n => n.UserId == userId && n.Title == id);
 
-            if (existing == null)
-                _db.Notifications.Add(new Notification { UserId = userId, Title = id, DeletedAt = DateTime.UtcNow });
+            if (id.StartsWith("passwd-req-"))
+            {
+                if (existing != null)
+                    existing.DeletedAt = DateTime.UtcNow;
+            }
             else
-                existing.DeletedAt = DateTime.UtcNow;
+            {
+                if (existing == null)
+                    _db.Notifications.Add(new Notification { UserId = userId, Title = id, DeletedAt = DateTime.UtcNow });
+                else
+                    existing.DeletedAt = DateTime.UtcNow;
+            }
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "Notification deleted." });
@@ -172,6 +222,12 @@ namespace StockWave.Server.Controllers
             foreach (var s in existingStates) s.DeletedAt = DateTime.UtcNow;
             foreach (var id in activeIds.Where(id => !existingIds.Contains(id)))
                 _db.Notifications.Add(new Notification { UserId = userId, Title = id, DeletedAt = DateTime.UtcNow });
+
+            var persistedRows = await _db.Notifications
+                .Where(n => n.UserId == userId && n.Title.StartsWith("passwd-req-") && n.DeletedAt == null)
+                .ToListAsync();
+            foreach (var n in persistedRows)
+                n.DeletedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "All notifications cleared." });

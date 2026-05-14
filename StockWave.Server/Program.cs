@@ -5,7 +5,7 @@ using System.Text;
 using StockWave.Server.Data;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddHttpClient();
 // Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
                     ?? Environment.GetEnvironmentVariable("DATABASE_URL");

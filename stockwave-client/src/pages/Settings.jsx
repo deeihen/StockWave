@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import "./Settings.css";
-import { changeMyPassword, updateSecuritySettings, clearActivityLogs, resetSystem, updateUser, createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../api/stockwaveApi";
+import {
+  changeMyPassword,
+  updateSecuritySettings,
+  clearActivityLogs,
+  resetSystem,
+  updateUser,
+  createStaff,
+  getMyStaff,
+  deleteStaff,
+  toggleStaffStatus,
+  resetStaffPassword,
+  updateMyProfile,
+} from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
 import {
   User as UserIcon,
@@ -20,10 +32,13 @@ import {
   Users,
   Plus,
   Badge,
+  ExternalLink,
   UserX,
   UserCheck,
   Eye,
   EyeOff,
+  X,
+  KeyRound,                    // ← NEW
 } from "lucide-react";
 
 const tabs = [
@@ -69,23 +84,207 @@ function FieldRow({ label, sub, children }) {
   );
 }
 
-// ── Staff Tab ──────────────────────────────────────
-function StaffTab() {
-  const [staffList, setStaffList]   = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [form, setForm]             = useState({ fullName: "", username: "", password: "" });
-  const [showPass, setShowPass]     = useState(false);
-  const [creating, setCreating]     = useState(false);
-  const [error, setError]           = useState("");
-  const [success, setSuccess]       = useState("");
+// ─────────────────────────────────────────────────────
+// Shared avatar colour helper
+// ─────────────────────────────────────────────────────
+const STAFF_COLORS = ["#059669", "#10b981", "#34d399", "#065f46", "#064e3b"];
+const avatarColor = (name) =>
+  STAFF_COLORS[((name || "?").charCodeAt(0) || 0) % STAFF_COLORS.length];
+const avatarInitial = (name) =>
+  ((name || "?")[0] || "?").toUpperCase();
 
-  const loadStaff = async () => {
+// ─────────────────────────────────────────────────────
+// View Staff Modal
+// ─────────────────────────────────────────────────────
+function ViewStaffModal({ staff, onClose, onResetPassword, isAdmin }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Staff Information</h3>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <div className="modal-body">
+          <div className="profile-detail-header">
+            <div className="usr-avatar large" style={{ background: avatarColor(staff.fullName) }}>
+              {avatarInitial(staff.fullName)}
+            </div>
+            <div className="profile-detail-info">
+              <h2 className="profile-name">{staff.fullName}</h2>
+              <p className="profile-username">@{staff.username}</p>
+              <span className={`status-dot-badge ${(staff.status || "").toLowerCase()}`}>
+                <span className="sdot" />{staff.status}
+              </span>
+            </div>
+          </div>
+
+          <div className="profile-detail-grid">
+            <div className="detail-item">
+              <div className="detail-label-wrap"><Mail size={14} /><span>Email</span></div>
+              <p className="detail-value">{staff.email || "Not provided"}</p>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label-wrap"><Phone size={14} /><span>Phone</span></div>
+              <p className="detail-value">{staff.phoneNumber || "None"}</p>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label-wrap"><Badge size={14} /><span>Identifier</span></div>
+              <p className="detail-value">{staff.identifier}</p>
+            </div>
+            <div className="detail-item">
+              <div className="detail-label-wrap"><Clock size={14} /><span>Last Login</span></div>
+              <p className="detail-value">{staff.lastLogin || "Never"}</p>
+            </div>
+            <div className="detail-item full">
+              <div className="detail-label-wrap"><Briefcase size={14} /><span>Biography</span></div>
+              <p className="detail-value bio-text">{staff.bio || "No description provided."}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          {/* FIX: password is never returned by the API, so show Reset Password instead */}
+          {isAdmin && (
+            <button className="btn-reset-pass" onClick={() => onResetPassword(staff)}>
+              <KeyRound size={14} /> Reset Password
+            </button>
+          )}
+          <button className="btn-cancel" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// Reset Password Modal  (NEW)
+// ─────────────────────────────────────────────────────
+function ResetPasswordModal({ staff, onClose, onConfirm }) {
+  const [newPass,      setNewPass]      = useState("");
+  const [confirm,      setConfirm]      = useState("");
+  const [showNew,      setShowNew]      = useState(false);
+  const [showConfirm,  setShowConfirm]  = useState(false);
+  const [error,        setError]        = useState("");
+  const [loading,      setLoading]      = useState(false);
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!newPass.trim())          { setError("New password is required.");              return; }
+    if (newPass.length < 6)       { setError("Password must be at least 6 characters."); return; }
+    if (newPass !== confirm)      { setError("Passwords do not match.");               return; }
+
     setLoading(true);
     try {
+      await onConfirm(newPass);
+      // parent handles closing / success toast
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to reset password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 className="modal-title">Reset Staff Password</h3>
+          <button className="modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <div className="modal-body">
+          <p className="reset-pass-hint">
+            Setting a new password for <strong>{staff.fullName}</strong>{" "}
+            <span style={{ color: "var(--text-muted)" }}>(@{staff.username})</span>. Share it
+            with them securely after resetting.
+          </p>
+
+          {error && <div className="pass-error-alt">{error}</div>}
+
+          <div className="form-field" style={{ marginBottom: 16 }}>
+            <label className="form-label">New Password</label>
+            <div className="input-with-icon">
+              <input
+                className="form-input"
+                type={showNew ? "text" : "password"}
+                placeholder="Min. 6 characters"
+                value={newPass}
+                onChange={e => setNewPass(e.target.value)}
+                style={{ paddingLeft: 12, paddingRight: 40 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(v => !v)}
+                style={{ position: "absolute", right: 12, left: "auto", cursor: "pointer", background: "none", border: "none", color: "var(--text-muted)", display: "flex" }}
+              >
+                {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Confirm Password</label>
+            <div className="input-with-icon">
+              <input
+                className="form-input"
+                type={showConfirm ? "text" : "password"}
+                placeholder="Re-enter password"
+                value={confirm}
+                onChange={e => setConfirm(e.target.value)}
+                style={{ paddingLeft: 12, paddingRight: 40 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm(v => !v)}
+                style={{ position: "absolute", right: 12, left: "auto", cursor: "pointer", background: "none", border: "none", color: "var(--text-muted)", display: "flex" }}
+              >
+                {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn-cancel" onClick={onClose} disabled={loading}>Cancel</button>
+          <button className="btn-save" onClick={handleSubmit} disabled={loading}>
+            {loading ? "Resetting..." : "Reset Password"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// Staff Tab
+// ─────────────────────────────────────────────────────
+function StaffTab({ isAdmin }) {
+  const [staffList, setStaffList] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+
+  // Separate states: create form vs directory — avoids double-display of messages
+  const [form,       setForm]      = useState({ fullName: "", username: "", password: "", email: "" });
+  const [showPass,   setShowPass]  = useState(false);
+  const [creating,   setCreating]  = useState(false);
+  const [createErr,  setCreateErr] = useState("");
+  const [createOk,   setCreateOk]  = useState("");
+
+  const [listErr,    setListErr]   = useState("");
+  const [listOk,     setListOk]    = useState("");
+
+  // modal: null | { type: "view"|"reset", staff }
+  const [modal, setModal] = useState(null);
+
+  // ── load staff list ──────────────────────────────
+  const loadStaff = async () => {
+    setLoading(true);
+    setListErr("");
+    try {
       const res = await getMyStaff();
-      setStaffList(res.data);
+      setStaffList(Array.isArray(res.data) ? res.data : []);
     } catch {
-      setError("Failed to load staff.");
+      setListErr("Failed to load staff. Please refresh.");
     } finally {
       setLoading(false);
     }
@@ -93,134 +292,193 @@ function StaffTab() {
 
   useEffect(() => { loadStaff(); }, []);
 
+  // ── create ───────────────────────────────────────
   const handleCreate = async () => {
-    setError(""); setSuccess("");
+    setCreateErr(""); setCreateOk("");
     if (!form.fullName.trim() || !form.username.trim() || !form.password.trim()) {
-      setError("All fields are required."); return;
+      setCreateErr("Full name, username, and password are required."); return;
+    }
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setCreateErr("Please enter a valid email address."); return;
     }
     if (form.password.length < 6) {
-      setError("Password must be at least 6 characters."); return;
+      setCreateErr("Password must be at least 6 characters."); return;
     }
     setCreating(true);
     try {
-      const res = await createStaff(form);
-      setSuccess(`Staff "${res.data.staff.fullName}" created! Identifier: ${res.data.staff.identifier}`);
-      setForm({ fullName: "", username: "", password: "" });
-      loadStaff();
+      const payload = { fullName: form.fullName, username: form.username, password: form.password };
+      if (form.email.trim()) payload.email = form.email.trim();
+      const res = await createStaff(payload);
+      const created = res.data?.staff;
+      setCreateOk(
+        `Staff "${created?.fullName ?? form.fullName}" created! Identifier: ${created?.identifier ?? ""}`
+      );
+      setForm({ fullName: "", username: "", password: "", email: "" });
+      await loadStaff();  // FIX: await so list refreshes before spinner disappears
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create staff.");
+      setCreateErr(err.response?.data?.message || "Failed to create staff.");
     } finally {
       setCreating(false);
     }
   };
 
+  // ── delete ───────────────────────────────────────
   const handleDelete = async (id, name) => {
     if (!window.confirm(`Remove staff account "${name}"? This cannot be undone.`)) return;
     try {
       await deleteStaff(id);
       setStaffList(prev => prev.filter(s => s.id !== id));
-      setSuccess(`"${name}" has been removed.`);
+      setListOk(`"${name}" has been removed.`);
+      setModal(null);
     } catch {
-      setError("Failed to remove staff.");
+      setListErr("Failed to remove staff.");
     }
   };
 
+  // ── toggle status ────────────────────────────────
   const handleToggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
     try {
       await toggleStaffStatus(id, newStatus);
       setStaffList(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
     } catch {
-      setError("Failed to update status.");
+      setListErr("Failed to update status.");
     }
   };
 
+  // ── reset password (NEW) ─────────────────────────
+  const handleResetPassword = async (staffId, newPassword) => {
+    await resetStaffPassword(staffId, { newPassword });
+    // On success, close modal and show toast
+    const name = modal?.staff?.fullName ?? "";
+    setModal(null);
+    setListOk(`Password for "${name}" has been reset successfully.`);
+  };
+
+  // ─────────────────────────────────────────────────
   return (
     <div className="tab-pane">
-      {/* ── Create Staff ── */}
-      <Section title="Create Staff Account" sub="Staff share your workspace data" icon={Plus}>
-        {error   && <div className="pass-error-alt">{error}</div>}
-        {success && <div className="pass-success-alt"><CheckCircle size={14} /> {success}</div>}
-        <div className="form-grid">
-          <div className="form-field">
-            <label className="form-label">Full Name</label>
-            <input className="form-input" placeholder="e.g. Juan dela Cruz"
-              value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
-          </div>
-          <div className="form-field">
-            <label className="form-label">Username</label>
-            <input className="form-input" placeholder="e.g. juan_staff"
-              value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
-          </div>
-          <div className="form-field full">
-            <label className="form-label">Password</label>
-            <div className="input-with-icon">
-              <input className="form-input" type={showPass ? "text" : "password"}
-                placeholder="Min. 6 characters"
-                value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-              <button type="button" className="input-icon-abs input-icon-btn"
-                onClick={() => setShowPass(v => !v)} style={{ cursor: "pointer", background: "none", border: "none" }}>
-                {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
+
+      {/* ── Create Staff (Admin Only) ── */}
+      {isAdmin && (
+        <Section title="Create Staff Account" sub="Staff share your workspace data" icon={Plus}>
+          {createErr && <div className="pass-error-alt">{createErr}</div>}
+          {createOk  && <div className="pass-success-alt"><CheckCircle size={14} /> {createOk}</div>}
+          <div className="form-grid">
+            <div className="form-field">
+              <label className="form-label">Full Name</label>
+              <input className="form-input" placeholder="e.g. Juan dela Cruz"
+                value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Username</label>
+              <input className="form-input" placeholder="e.g. juan_staff"
+                value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Email Address</label>
+              <div className="input-with-icon">
+                <Mail size={16} className="input-icon-abs" />
+                <input className="form-input" type="email" placeholder="staff@example.com (optional)"
+                  value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
+            </div>
+            <div className="form-field">
+              <label className="form-label">Password</label>
+              <div className="input-with-icon">
+                <input
+                  className="form-input"
+                  type={showPass ? "text" : "password"}
+                  placeholder="Min. 6 characters"
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  style={{ paddingLeft: 12, paddingRight: 40 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(v => !v)}
+                  style={{ position: "absolute", right: 12, left: "auto", cursor: "pointer", background: "none", border: "none", color: "var(--text-muted)", display: "flex" }}
+                >
+                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="staff-identifier-note">
-          <Badge size={13} />
-          A unique identifier (e.g. <code>.waveKx9m</code>) will be auto-generated for this staff.
-        </div>
-        <div className="section-actions">
-          <button className="btn-save" onClick={handleCreate} disabled={creating}>
-            {creating ? "Creating..." : "Create Staff Account"}
-          </button>
-        </div>
-      </Section>
+          <div className="staff-identifier-note">
+            <Badge size={13} />
+            A unique identifier (e.g. <code>.waveKx9m</code>) will be auto-generated for this staff.
+          </div>
+          <div className="section-actions">
+            <button className="btn-save" onClick={handleCreate} disabled={creating}>
+              {creating ? "Creating..." : "Create Staff Account"}
+            </button>
+          </div>
+        </Section>
+      )}
 
-      {/* ── Staff List ── */}
-      <Section title="Your Staff" sub={`${staffList.length} account${staffList.length !== 1 ? "s" : ""} in your workspace`} icon={Users}>
+      {/* ── Staff Directory ── */}
+      <Section
+        title={isAdmin ? "Your Staff" : "Staff Directory"}
+        sub={`${staffList.length} account${staffList.length !== 1 ? "s" : ""} in your workspace`}
+        icon={Users}
+      >
+        {listErr && <div className="pass-error-alt">{listErr}</div>}
+        {listOk  && <div className="pass-success-alt"><CheckCircle size={14} /> {listOk}</div>}
+
         {loading ? (
           <p className="frl-sub" style={{ padding: "12px 0" }}>Loading staff...</p>
         ) : staffList.length === 0 ? (
           <div className="staff-empty">
             <Users size={32} opacity={0.3} />
-            <p>No staff accounts yet. Create one above.</p>
+            <p>{isAdmin ? "No staff accounts yet. Create one above." : "No staff accounts available."}</p>
           </div>
         ) : (
-          <div className="staff-list">
+          <div className="staff-grid">
             {staffList.map(s => (
-              <div key={s.id} className="staff-row">
-                <div className="staff-avatar">
-                  {s.fullName?.[0]?.toUpperCase() || "S"}
-                </div>
-                <div className="staff-info">
-                  <p className="staff-name">{s.fullName}</p>
-                  <p className="staff-meta">@{s.username}</p>
-                  <span className="staff-identifier">{s.identifier}</span>
-                </div>
-                <div className="staff-right">
-                  <span className={`staff-status ${s.status === "Active" ? "active" : "inactive"}`}>
-                    {s.status}
-                  </span>
-                  <p className="staff-joined">
-                    Joined {new Date(s.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                  {s.lastLogin && (
-                    <p className="staff-joined">
-                      Last login {new Date(s.lastLogin).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
-                    </p>
+              <div
+                key={s.id}
+                className="staff-card"
+                onClick={() => setModal({ type: "view", staff: s })}
+              >
+                <div className="staff-card-top">
+                  {/* FIX: null-safe avatar — no crash when fullName is missing */}
+                  <div
+                    className="staff-card-avatar"
+                    style={{ background: avatarColor(s.fullName) }}
+                  >
+                    {avatarInitial(s.fullName)}
+                  </div>
+
+                  {isAdmin && (
+                    <div className="staff-card-actions" onClick={e => e.stopPropagation()}>
+                      <button
+                        className="act-btn"
+                        onClick={() => handleToggleStatus(s.id, s.status)}
+                        title={s.status === "Active" ? "Deactivate" : "Activate"}
+                      >
+                        {s.status === "Active" ? <UserX size={14} /> : <UserCheck size={14} />}
+                      </button>
+                      <button
+                        className="act-btn del"
+                        onClick={() => handleDelete(s.id, s.fullName)}
+                        title="Remove"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   )}
                 </div>
-                <div className="staff-actions">
-                  <button
-                    className={`staff-btn ${s.status === "Active" ? "warn" : "ok"}`}
-                    onClick={() => handleToggleStatus(s.id, s.status)}
-                    title={s.status === "Active" ? "Deactivate" : "Activate"}
-                  >
-                    {s.status === "Active" ? <UserX size={14} /> : <UserCheck size={14} />}
-                  </button>
-                  <button className="staff-btn danger"
-                    onClick={() => handleDelete(s.id, s.fullName)} title="Remove">
-                    <Trash2 size={14} />
+
+                <h3 className="staff-card-name">{s.fullName || "(No name)"}</h3>
+                <p className="staff-card-username">@{s.username}</p>
+                <p className="staff-card-identifier">{s.identifier}</p>
+
+                <div className="staff-card-bottom">
+                  <span className={`status-dot-badge ${(s.status || "").toLowerCase()}`}>
+                    <span className="sdot" />{s.status}
+                  </span>
+                  <button className="view-profile-link">
+                    View <ExternalLink size={10} />
                   </button>
                 </div>
               </div>
@@ -228,17 +486,38 @@ function StaffTab() {
           </div>
         )}
       </Section>
+
+      {/* ── View Modal ── */}
+      {modal?.type === "view" && (
+        <ViewStaffModal
+          staff={modal.staff}
+          onClose={() => setModal(null)}
+          isAdmin={isAdmin}
+          onResetPassword={(staff) => setModal({ type: "reset", staff })}
+        />
+      )}
+
+      {/* ── Reset Password Modal (NEW) ── */}
+      {modal?.type === "reset" && (
+        <ResetPasswordModal
+          staff={modal.staff}
+          onClose={() => setModal(null)}
+          onConfirm={(newPassword) => handleResetPassword(modal.staff.id, newPassword)}
+        />
+      )}
     </div>
   );
 }
 
-// ── Main Component ─────────────────────────────────
+// ─────────────────────────────────────────────────────
+// Main Settings Component
+// ─────────────────────────────────────────────────────
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const [saved, setSaved]         = useState(false);
   const { run, isRunning }        = useActionGuard(500);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user    = JSON.parse(localStorage.getItem("user") || "{}");
   const isAdmin = user.role === "Admin";
 
   const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
@@ -256,13 +535,24 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     await run("save-profile", async () => {
       try {
-        await updateUser(profile.id, {
-          fullName:    profile.name,
-          username:    profile.username,
-          email:       profile.email,
-          phoneNumber: profile.phone,
-          bio:         profile.bio
-        });
+        if (isAdmin) {
+          // Admin uses the full update endpoint
+          await updateUser(profile.id, {
+            fullName:    profile.name,
+            username:    profile.username,
+            email:       profile.email,
+            phoneNumber: profile.phone,
+            bio:         profile.bio
+          });
+        } else {
+          // Staff uses the self-service profile endpoint
+          await updateMyProfile({
+            fullName:    profile.name,
+            email:       profile.email,
+            phoneNumber: profile.phone,
+            bio:         profile.bio
+          });
+        }
         const u = JSON.parse(localStorage.getItem("user") || "{}");
         Object.assign(u, { fullName: profile.name, username: profile.username, email: profile.email, phoneNumber: profile.phone, bio: profile.bio });
         localStorage.setItem("user", JSON.stringify(u));
@@ -291,11 +581,11 @@ export default function Settings() {
     loginAlerts:    user.loginAlertsEnabled !== false,
   }));
 
-  const [securityLoading, setSecurityLoading]   = useState(false);
-  const [securityMessage, setSecurityMessage]   = useState("");
-  const [passwords, setPasswords]               = useState({ current: "", newPass: "", confirm: "" });
-  const [passError, setPassError]               = useState("");
-  const [passSuccess, setPassSuccess]           = useState(false);
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState("");
+  const [passwords, setPasswords]             = useState({ current: "", newPass: "", confirm: "" });
+  const [passError,  setPassError]            = useState("");
+  const [passSuccess, setPassSuccess]         = useState(false);
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
 
@@ -320,9 +610,9 @@ export default function Settings() {
       setSecurityLoading(true); setSecurityMessage("");
       try {
         await updateSecuritySettings({
-          twoFactorEnabled:       security.twoFactor,
-          sessionTimeoutMinutes:  parseInt(security.sessionTimeout),
-          loginAlertsEnabled:     security.loginAlerts,
+          twoFactorEnabled:      security.twoFactor,
+          sessionTimeoutMinutes: parseInt(security.sessionTimeout),
+          loginAlertsEnabled:    security.loginAlerts,
         });
         const u = JSON.parse(localStorage.getItem("user") || "{}");
         u.twoFactorEnabled = security.twoFactor;
@@ -338,8 +628,8 @@ export default function Settings() {
     });
   };
 
-  const handleClearLogs    = async () => { if (window.confirm("Wipe all activity logs?")) { try { await clearActivityLogs(); showSaved(); } catch { alert("Failed."); } } };
-  const handleResetSystem  = async () => { if (window.confirm("Factory reset all system settings?")) { try { await resetSystem(); showSaved(); } catch { alert("Failed."); } } };
+  const handleClearLogs   = async () => { if (window.confirm("Wipe all activity logs?"))           { try { await clearActivityLogs(); showSaved(); } catch { alert("Failed."); } } };
+  const handleResetSystem = async () => { if (window.confirm("Factory reset all system settings?")) { try { await resetSystem();      showSaved(); } catch { alert("Failed."); } } };
 
   return (
     <div className="settings-root">
@@ -354,9 +644,11 @@ export default function Settings() {
         <aside className="settings-sidebar">
           <p className="settings-sidebar-label">Preferences</p>
           {visibleTabs.map(t => (
-            <button key={t.id}
+            <button
+              key={t.id}
               className={`settings-tab ${activeTab === t.id ? "active" : ""}`}
-              onClick={() => setActiveTab(t.id)}>
+              onClick={() => setActiveTab(t.id)}
+            >
               <t.icon size={16} />
               {t.label}
               {t.id === "staff" && <span className="staff-tab-badge">Admin</span>}
@@ -566,12 +858,10 @@ export default function Settings() {
           )}
 
           {/* STAFF — Admin only */}
-          {activeTab === "staff" && isAdmin && <StaffTab />}
+          {activeTab === "staff" && <StaffTab isAdmin={isAdmin} />}
 
         </div>
       </div>
     </div>
   );
 }
-
-/* append to Settings.css instead — staff-specific styles */

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./Register.css";
 import { registerUser } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
@@ -73,7 +73,11 @@ export default function Register({ onGoLogin }) {
     });
   };
 
-  if (success) { onGoLogin(); }
+  useEffect(() => {
+    if (success) {
+      onGoLogin();
+    }
+  }, [success, onGoLogin]);
 
   return (
     <div className="reg-root">
