@@ -47,7 +47,7 @@ export default function Pos() {
         // Use only sale transactions for the POS feed
         const grouped = new Map();
         res.data
-          .filter((a) => a.action === "Sold")
+          .filter((a) => a.action === "Sale" || a.action === "Sold")
           .forEach((a) => {
             const key = new Date(a.timestamp).toISOString();
             const current = grouped.get(key) || {

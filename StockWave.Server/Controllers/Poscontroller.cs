@@ -15,6 +15,29 @@ namespace StockWave.Server.Controllers
         private readonly AppDbContext _db;
         public PosController(AppDbContext db) { _db = db; }
 
+        private int GetWorkspaceAdminId()
+        {
+            var adminIdClaim = User.FindFirstValue("adminId");
+            return int.Parse(adminIdClaim ?? "0");
+        }
+
+        private int GetUserId()
+        {
+            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.Parse(id ?? "0");
+        }
+
+        private async Task<List<int>> GetWorkspaceUserIdsAsync()
+        {
+            var adminId = GetWorkspaceAdminId();
+            var staffIds = await _db.Users
+                .Where(u => u.AdminId == adminId)
+                .Select(u => u.Id)
+                .ToListAsync();
+            staffIds.Add(adminId);
+            return staffIds;
+        }
+
         // POST /api/pos/checkout
         // Body: { items: [{ productId, quantity, price }], paymentMethod, cashierName }
         [HttpPost("checkout")]
@@ -24,13 +47,14 @@ namespace StockWave.Server.Controllers
                 return BadRequest(new { message = "Cart is empty." });
 
             var userId = GetUserId();
+            var workspaceIds = await GetWorkspaceUserIdsAsync();
             var errors = new List<string>();
             var updatedProducts = new List<Product>();
 
             // ── Validate all items first before touching the DB ──
             foreach (var item in dto.Items)
             {
-                var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == item.ProductId);
+                var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == item.ProductId && workspaceIds.Contains(p.UserId));
                 if (product == null)
                 {
                     errors.Add($"Product ID {item.ProductId} not found.");
@@ -87,12 +111,6 @@ namespace StockWave.Server.Controllers
 
         private static string GetStatus(int stock) =>
             stock == 0 ? "Out of Stock" : stock <= 10 ? "Low Stock" : "In Stock";
-
-        private int GetUserId()
-        {
-            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.Parse(id ?? "0");
-        }
     }
 
     public record CheckoutItemDto(int ProductId, int Quantity, decimal Price);
