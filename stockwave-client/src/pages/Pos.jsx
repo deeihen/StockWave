@@ -64,9 +64,9 @@ export default function Pos() {
             current.items.push({
               name: a.item,
               quantity: a.quantity,
-              price: a.price ?? 0,
+              price: a.price ?? a.unitPrice ?? 0,
             });
-            current.totalAmount += (a.price ?? 0) * a.quantity;
+            current.totalAmount += (a.price ?? a.unitPrice ?? 0) * a.quantity;
             grouped.set(key, current);
           });
 
@@ -314,14 +314,17 @@ export default function Pos() {
       minute: "2-digit",
     });
 
-    const rows = (activityItem.items || []).map((item) => `
+    const rows = (activityItem.items || []).map((item) => {
+      const unitPrice = item.price ?? item.unitPrice ?? 0;
+      return `
       <tr>
         <td>${item.name}</td>
         <td style="text-align:right">${item.quantity}</td>
-        <td style="text-align:right">₱${(item.price ?? 0).toLocaleString()}</td>
-        <td style="text-align:right">₱${((item.price ?? 0) * item.quantity).toLocaleString()}</td>
+        <td style="text-align:right">₱${unitPrice.toLocaleString()}</td>
+        <td style="text-align:right">₱${(unitPrice * item.quantity).toLocaleString()}</td>
       </tr>
-    `).join("");
+    `;
+    }).join("");
 
     const html = `
       <!DOCTYPE html>
@@ -556,23 +559,25 @@ export default function Pos() {
             ) : activity.length === 0 ? (
               <p style={{ fontSize: 13, color: "#64748b", padding: "8px 0" }}>No sales yet.</p>
             ) : (
-              activity.map((item) => (
-                <button
-                  key={item.id}
-                  className="pos-activity-row"
-                  onClick={() => setReviewedActivity(item)}
-                  type="button"
-                >
-                  <div>
-                    <p>{item.item}</p>
-                    <span>{item.performedBy} • {item.time}</span>
-                  </div>
-                  <div className="pos-activity-meta">
-                    <strong>{item.quantity} {item.quantity === 1 ? "unit" : "units"}</strong>
-                    <span className="pill paid">Sold</span>
-                  </div>
-                </button>
-              ))
+              <div className="pos-activity-list">
+                {activity.map((item) => (
+                  <button
+                    key={item.id}
+                    className="pos-activity-row"
+                    onClick={() => setReviewedActivity(item)}
+                    type="button"
+                  >
+                    <div>
+                      <p>{item.item}</p>
+                      <span>{item.performedBy} • {item.time}</span>
+                    </div>
+                    <div className="pos-activity-meta">
+                      <strong>{item.quantity} {item.quantity === 1 ? "unit" : "units"}</strong>
+                      <span className="pill paid">Sold</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
@@ -609,13 +614,16 @@ export default function Pos() {
               <div>Time: {reviewedActivity.date} • {reviewedActivity.time}</div>
               {reviewedActivity.items?.length > 0 && (
                 <div className="pos-modal-items">
-                  {reviewedActivity.items.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="pos-modal-item">
-                      <span className="pos-modal-name">{item.name}</span>
-                      <span className="pos-modal-qty">{item.quantity}</span>
-                      <span className="pos-modal-line">₱{((item.price ?? 0) * item.quantity).toLocaleString()}</span>
-                    </div>
-                  ))}
+                  {reviewedActivity.items.map((item, index) => {
+                    const unitPrice = item.price ?? item.unitPrice ?? 0;
+                    return (
+                      <div key={`${item.name}-${index}`} className="pos-modal-item">
+                        <span className="pos-modal-name">{item.name}</span>
+                        <span className="pos-modal-qty">{item.quantity}</span>
+                        <span className="pos-modal-line">₱{(unitPrice * item.quantity).toLocaleString()}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
