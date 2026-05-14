@@ -21,14 +21,9 @@ import {
   Download,
   TrendingUp,
   TrendingDown,
-  Activity,
-  Zap,
   Sparkles,
   Cpu,
   CreditCard,
-  ScanBarcode,
-  ShieldCheck,
-  RefreshCw,
   Send,
   X,
 } from "lucide-react";
@@ -162,17 +157,8 @@ export default function Dashboard({ onLogout }) {
           <div className="header-left">
             <h1 className="page-title">{title}</h1>
             <p className="page-sub">{sub}</p>
-            <div className="header-meta">
-              <span className="status-pill"><span className="pulse-dot" />Live Ops</span>
-              <span className="status-pill muted"><Activity size={14} /> 32 events/min</span>
-              <span className="status-pill ghost"><ShieldCheck size={14} /> Secure</span>
-            </div>
           </div>
           <div className="header-right">
-            <div className="header-quick">
-              <button className="header-action"><RefreshCw size={16} /> Sync</button>
-              <button className="header-action primary"><ScanBarcode size={16} /> Quick Scan</button>
-            </div>
             <VoiceControl
               onCommand={handleVoiceCommand}
               active={voiceActive}
@@ -247,6 +233,7 @@ function DashboardHome() {
 
   const addedCount = activity.filter(a => a.action === "Added").length;
   const removedCount = activity.filter(a => a.action !== "Added").length;
+  const outOfStock = lowStock.filter(item => Number(item.stock) <= 0);
 
   return (
     <div className="dash-content">
@@ -326,28 +313,26 @@ function DashboardHome() {
               <p className="movement-sub">Trend syncs with reports and POS updates.</p>
             </div>
 
-            <div className="warehouse-card">
-              <div className="warehouse-header">
-                <h3>Warehouse Activity</h3>
-                <span className="warehouse-live"><Zap size={14} /> Active</span>
+            <div className="outofstock-card">
+              <div className="outofstock-header">
+                <h3>Out of Stock</h3>
+                <span className="outofstock-count">{outOfStock.length}</span>
               </div>
-              <div className="warehouse-grid">
-                <div>
-                  <p>Dock Utilization</p>
-                  <h4>78%</h4>
-                  <div className="pulse-line"><span /></div>
+              {outOfStock.length === 0 ? (
+                <p className="outofstock-empty">All items are currently in stock.</p>
+              ) : (
+                <div className="outofstock-list">
+                  {outOfStock.slice(0, 4).map((item, i) => (
+                    <div key={i} className="outofstock-item">
+                      <div>
+                        <p className="outofstock-name">{item.name}</p>
+                        <p className="outofstock-sub">0 units available</p>
+                      </div>
+                      <span className="outofstock-pill">Urgent</span>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p>Pick Rate</p>
-                  <h4>312/hr</h4>
-                  <div className="pulse-line purple"><span /></div>
-                </div>
-                <div>
-                  <p>Replenishment</p>
-                  <h4>12 queued</h4>
-                  <div className="pulse-line amber"><span /></div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
