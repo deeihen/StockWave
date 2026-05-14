@@ -1,24 +1,31 @@
 # Build Stage
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /source
+WORKDIR /src
 
-# Copy csproj and restore as distinct layers
+# Copy the solution file if it exists, and the project file
+COPY ["StockWave.sln", "./"]
 COPY ["StockWave.Server/StockWave.Server.csproj", "StockWave.Server/"]
+
+# Restore dependencies
 RUN dotnet restore "StockWave.Server/StockWave.Server.csproj"
 
-# Copy everything else and build
+# Copy the rest of the source code
 COPY . .
-WORKDIR "/source/StockWave.Server"
-RUN dotnet publish "StockWave.Server.csproj" -c Release -o /app
+
+# Build the project
+WORKDIR "/src/StockWave.Server"
+RUN dotnet build "StockWave.Server.csproj" -c Release -o /app/build
+
+# Publish the project
+FROM build AS publish
+RUN dotnet publish "StockWave.Server.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Final Stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
-COPY --from=build /app .
+COPY --from=publish /app/publish .
 
-# Railway uses the PORT environment variable. 
-# ASP.NET Core 8.0+ automatically binds to PORT if ASPNETCORE_HTTP_PORTS is not set, 
-# but setting it explicitly ensures it works with Railway's dynamic port assignment.
+# Railway environment configuration
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
