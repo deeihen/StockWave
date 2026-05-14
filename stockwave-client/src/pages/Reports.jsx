@@ -196,7 +196,7 @@ export default function Reports({ exportSignal = 0 }) {
           <h3 className="rep-stat-value">
             {summary?.itemsRemovedThisMonth ?? "—"}
           </h3>
-          <p className="rep-stat-label">Items Removed</p>
+          <p className="rep-stat-label">Sales</p>
         </div>
 
         <div className="rep-stat-card" style={{ animationDelay: "180ms" }}>
@@ -250,7 +250,7 @@ export default function Reports({ exportSignal = 0 }) {
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(34, 211, 238, 0.08)" }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
                     <Bar dataKey="added" name="Added" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={24} />
-                    <Bar dataKey="removed" name="Removed" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                    <Bar dataKey="removed" name="Sales" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={24} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -373,7 +373,7 @@ export default function Reports({ exportSignal = 0 }) {
                   <YAxis tick={{ fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Area type="monotone" dataKey="added" name="Added" stroke="#059669" strokeWidth={2} fill="url(#addedGrad)" />
-                  <Area type="monotone" dataKey="removed" name="Removed" stroke="#ef4444" strokeWidth={2} fill="url(#removedGrad)" />
+                  <Area type="monotone" dataKey="removed" name="Sales" stroke="#ef4444" strokeWidth={2} fill="url(#removedGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             )}

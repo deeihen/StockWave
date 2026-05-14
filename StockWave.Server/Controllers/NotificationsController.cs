@@ -72,7 +72,7 @@ namespace StockWave.Server.Controllers
                     id        = $"act-{t.Id}",
                     type      = t.Quantity > 0 ? "success" : "info",
                     icon      = t.Quantity > 0 ? "📥" : "📤",
-                    title     = (t.Quantity > 0 ? "Added" : "Removed") + ": " + t.Product.Name,
+                    title     = (t.Quantity > 0 ? "Added" : "Sale") + ": " + t.Product.Name,
                     message   = $"{Math.Abs(t.Quantity)} units by {t.PerformedBy}",
                     createdAt = t.Timestamp,
                 })

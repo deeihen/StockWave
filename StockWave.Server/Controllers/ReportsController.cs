@@ -48,7 +48,7 @@ namespace StockWave.Server.Controllers
                 .Where(t => workspaceIds.Contains(t.UserId) && t.Timestamp >= thisMonth);
 
             var added   = await transactions.Where(t => t.Action == "Added").SumAsync(t => (int?)t.Quantity) ?? 0;
-            var removed = await transactions.Where(t => t.Action == "Removed").SumAsync(t => (int?)t.Quantity) ?? 0;
+            var removed = await transactions.Where(t => t.Action == "Sale").SumAsync(t => (int?)t.Quantity) ?? 0;
             var totalValue = await products.SumAsync(p => (decimal?)((decimal)p.Stock * p.Price)) ?? 0;
 
             return Ok(new {
@@ -128,7 +128,7 @@ namespace StockWave.Server.Controllers
                 .Select(g => new {
                     month   = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
                     added   = g.Where(t => t.Action == "Added").Sum(t => t.Quantity),
-                    removed = g.Where(t => t.Action == "Removed").Sum(t => t.Quantity)
+                    removed = g.Where(t => t.Action == "Sale").Sum(t => t.Quantity)
                 })
                 .ToList();
 
@@ -143,7 +143,7 @@ namespace StockWave.Server.Controllers
             var top = await _db.StockTransactions
                 .Include(t => t.Product)
                 .Where(t => workspaceIds.Contains(t.UserId) &&
-                            (t.Action == "Added" || t.Action == "Removed"))
+                            (t.Action == "Added" || t.Action == "Sale"))
                 .GroupBy(t => new { t.ProductId, t.Product.Name, t.Product.Category, t.Product.Stock })
                 .Select(g => new {
                     name        = g.Key.Name,
