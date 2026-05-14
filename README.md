@@ -84,28 +84,30 @@ Frontend runs at: `http://localhost:5173`
 
 ---
 
-## Running the App (After Setup)
+## Running the App
 
-Open **two terminals** every time:
+To run the application, you need to start both the backend server and the frontend client.
 
-**Terminal 1 — Backend:**
+Open **two separate terminals**:
+
+### Terminal 1: Backend (ASP.NET Core)
 ```bash
 cd StockWave.Server
 dotnet run
 ```
+The server will be available at `http://localhost:5258`.
 
-**Terminal 2 — Frontend:**
+### Terminal 2: Frontend (React/Vite)
 ```bash
 cd stockwave-client
 npm run dev
 ```
-
-Then open `http://localhost:5173` in your browser.
+The frontend will be available at `http://localhost:5173`.
 
 ---
 
 ## First Login
-After setup you need to **register an account** first:
+After setup, you need to **register an account** first:
 
 1. Go to `http://localhost:5173`
 2. Click **"Create one"** on the login page
@@ -164,40 +166,38 @@ StockWave/
 
 
 
-## After online database new collaborators follow this
-Prerequisites
-Install these first if you don't have them:
+---
 
-Node.js LTS
-.NET 10 SDK
+## Collaborator Quick Start (Online Database)
 
+If you are a new collaborator connecting to an existing online database, follow these steps:
 
-Step 1 — Pull the Latest Changes
-bashgit pull
+### Step 1 — Pull the Latest Changes
+```bash
+git pull
+```
 
-## refer to the content sent on the group chat
-Step 2 — Update appsettings.json 
+### Step 2 — Update appsettings.json
+Ensure your `StockWave.Server/appsettings.json` has the correct connection strings and settings provided by the team.
 
-Step 3 — Install EF Core Tool
-bashdotnet tool install --global dotnet-ef
-(Skip if you already have it)
+### Step 3 — Install EF Core Tool (Optional)
+```bash
+dotnet tool install --global dotnet-ef
+```
+*(Skip if you already have it installed)*
 
-## Important do not miss this shit 
-Step 4 — Backend Setup
-bashcd StockWave.Server
+### Step 4 — Backend Setup
+```bash
+cd StockWave.Server
 dotnet restore
 dotnet ef database update
+```
 
-Step 5 — Frontend Setup
-bashcd stockwave-client
+### Step 5 — Frontend Setup
+```bash
+cd stockwave-client
 npm install
+```
 
-Step 6 — Running the App
-Open two terminals every time:
-Terminal 1 — Backend:
-bashcd StockWave.Server
-dotnet run
-Terminal 2 — Frontend:
-bashcd stockwave-client
-npm run dev
-Then open the localhost given to you in your browser.
+### Step 6 — Running the App
+Follow the [Running the App](#running-the-app) section above.

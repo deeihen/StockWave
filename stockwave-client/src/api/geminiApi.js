@@ -1,6 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey) {
+  console.warn("WaveAI: VITE_GEMINI_API_KEY is missing. AI features will be disabled.");
+}
+
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const MAX_INPUT_CHARS = 400;
 export const MAX_REQUESTS_PER_WINDOW = 5;
