@@ -30,6 +30,12 @@ namespace StockWave.Server.Controllers
             return int.Parse(id ?? "0");
         }
 
+        private int GetProductOwnerId()
+        {
+            var adminId = GetWorkspaceAdminId();
+            return adminId != 0 ? adminId : GetUserId();
+        }
+
         // Returns all user IDs in this workspace (admin + all their staff)
         private async Task<List<int>> GetWorkspaceUserIdsAsync()
         {
@@ -69,7 +75,7 @@ namespace StockWave.Server.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductDto dto)
         {
-            var userId = GetUserId();
+            var ownerId = GetProductOwnerId();
             var workspaceIds = await GetWorkspaceUserIdsAsync();
             var name = (dto.Name ?? string.Empty).Trim();
             var category = (dto.Category ?? string.Empty).Trim();
@@ -89,7 +95,7 @@ namespace StockWave.Server.Controllers
 
             var product = new Product
             {
-                UserId = userId,
+                UserId = ownerId,
                 Name = name,
                 Category = category,
                 Stock = dto.Stock,
@@ -105,7 +111,7 @@ namespace StockWave.Server.Controllers
 
             _db.StockTransactions.Add(new StockTransaction
             {
-                UserId = userId,
+                UserId = GetUserId(),
                 ProductId = product.Id,
                 Action = "Added",
                 Quantity = dto.Stock,

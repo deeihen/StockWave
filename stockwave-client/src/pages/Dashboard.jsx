@@ -8,6 +8,7 @@ import Reports from "./Reports";
 import Settings from "./Settings";
 import Pos from "./Pos";
 import { getReportSummary, getRecentActivity, getLowStock } from "../api/stockwaveApi";
+import { generateRestockOrder } from "../api/pdfUtils";
 
 import {
   LayoutDashboard,
@@ -21,14 +22,9 @@ import {
   Download,
   TrendingUp,
   TrendingDown,
-  Activity,
-  Zap,
   Sparkles,
   Cpu,
   CreditCard,
-  ScanBarcode,
-  ShieldCheck,
-  RefreshCw,
   Send,
   X,
 } from "lucide-react";
@@ -162,17 +158,8 @@ export default function Dashboard({ onLogout }) {
           <div className="header-left">
             <h1 className="page-title">{title}</h1>
             <p className="page-sub">{sub}</p>
-            <div className="header-meta">
-              <span className="status-pill"><span className="pulse-dot" />Live Ops</span>
-              <span className="status-pill muted"><Activity size={14} /> 32 events/min</span>
-              <span className="status-pill ghost"><ShieldCheck size={14} /> Secure</span>
-            </div>
           </div>
           <div className="header-right">
-            <div className="header-quick">
-              <button className="header-action"><RefreshCw size={16} /> Sync</button>
-              <button className="header-action primary"><ScanBarcode size={16} /> Quick Scan</button>
-            </div>
             <VoiceControl
               onCommand={handleVoiceCommand}
               active={voiceActive}
@@ -245,13 +232,16 @@ function DashboardHome() {
     );
   }
 
-  const addedCount = activity.filter(a => a.action === "Added").length;
-  const removedCount = activity.filter(a => a.action !== "Added").length;
+  const inboundCount = activity.filter(a => a.action === "Added").length;
+  const outboundCount = activity.filter(a => ["Sold", "Removed"].includes(a.action)).length;
+  const outOfStock = lowStock.filter(item => Number(item.stock) <= 0);
+  const handleGenerateRestockList = () => generateRestockOrder(lowStock);
 
   return (
     <div className="dash-content">
       <div className="overview-grid">
-        <div className="overview-hero">
+        <div className="overview-left">
+          <div className="overview-hero">
           <div className="overview-header">
             <div>
               <p className="eyebrow">Operations Overview</p>
@@ -294,9 +284,11 @@ function DashboardHome() {
             <div className="stat-compact">
               <div className="stat-compact-top down">
                 <TrendingDown size={16} />
-                <span>Items Removed</span>
+                <span>Sales</span>
               </div>
-              <div className="stat-compact-value">{summary?.itemsRemovedThisMonth ?? "—"}</div>
+              <div className="stat-compact-value">
+                {summary?.itemsSoldThisMonth ?? summary?.itemsRemovedThisMonth ?? "—"}
+              </div>
               <div className="mini-chart down"><span style={{ width: "58%" }} /></div>
             </div>
           </div>
@@ -309,45 +301,68 @@ function DashboardHome() {
               </div>
               <div className="movement-bars">
                 <div className="movement-bar">
-                  <span>Inbound</span>
+                  <span>Stock In</span>
                   <div className="bar-track">
-                    <div className="bar-fill in" style={{ width: `${Math.min(addedCount * 14 + 22, 95)}%` }} />
+                    <div className="bar-fill in" style={{ width: `${Math.min(inboundCount * 14 + 22, 95)}%` }} />
                   </div>
-                  <strong>{addedCount}</strong>
+                  <strong>{inboundCount}</strong>
                 </div>
                 <div className="movement-bar">
-                  <span>Outbound</span>
+                  <span>Sales</span>
                   <div className="bar-track">
-                    <div className="bar-fill out" style={{ width: `${Math.min(removedCount * 14 + 18, 95)}%` }} />
+                    <div className="bar-fill out" style={{ width: `${Math.min(outboundCount * 14 + 18, 95)}%` }} />
                   </div>
-                  <strong>{removedCount}</strong>
+                  <strong>{outboundCount}</strong>
                 </div>
               </div>
-              <p className="movement-sub">Trend syncs with reports and POS updates.</p>
+              <p className="movement-sub">Stock In = added items, Sales = POS deductions.</p>
             </div>
 
-            <div className="warehouse-card">
-              <div className="warehouse-header">
-                <h3>Warehouse Activity</h3>
-                <span className="warehouse-live"><Zap size={14} /> Active</span>
+            <div className="outofstock-card">
+              <div className="outofstock-header">
+                <h3>Out of Stock</h3>
+                <span className="outofstock-count">{outOfStock.length}</span>
               </div>
-              <div className="warehouse-grid">
-                <div>
-                  <p>Dock Utilization</p>
-                  <h4>78%</h4>
-                  <div className="pulse-line"><span /></div>
+              {outOfStock.length === 0 ? (
+                <p className="outofstock-empty">All items are currently in stock.</p>
+              ) : (
+                <div className="outofstock-list">
+                  {outOfStock.slice(0, 4).map((item, i) => (
+                    <div key={i} className="outofstock-item">
+                      <div>
+                        <p className="outofstock-name">{item.name}</p>
+                        <p className="outofstock-sub">0 units available</p>
+                      </div>
+                      <span className="outofstock-pill">Urgent</span>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <p>Pick Rate</p>
-                  <h4>312/hr</h4>
-                  <div className="pulse-line purple"><span /></div>
+              )}
+            </div>
+          </div>
+          </div>
+
+          <div className="timeline-panel">
+            <div className="panel-header">
+              <h3>Recent Transactions</h3>
+              <span className="side-tag">Timeline</span>
+            </div>
+            <div className="timeline">
+              {(activity.length
+                ? activity
+                : [{ id: "0", item: "POS Sync", action: "Added", quantity: 0, performedBy: "System", timestamp: new Date().toISOString() }]
+              ).slice(0, 50).map((a, i) => (
+                <div key={a.id || i} className="timeline-item">
+                  <div className={`timeline-dot ${a.action === "Added" ? "in" : "out"}`} />
+                  <div>
+                    <p className="timeline-title">{a.item}</p>
+                    <p className="timeline-meta">{a.action} • {a.quantity} units • {a.performedBy}</p>
+                  </div>
+                  <span className="timeline-time">
+                    {new Date(a.timestamp).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
+                  </span>
                 </div>
-                <div>
-                  <p>Replenishment</p>
-                  <h4>12 queued</h4>
-                  <div className="pulse-line amber"><span /></div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -402,36 +417,11 @@ function DashboardHome() {
                 ))}
               </div>
             )}
-            <button className="alert-action"><Download size={14} /> Generate restock list</button>
+            <button className="alert-action" onClick={handleGenerateRestockList}>
+              <Download size={14} /> Generate restock list
+            </button>
           </div>
         </div>
-      </div>
-
-      <div className="dash-bottom-grid">
-        <div className="timeline-panel">
-          <div className="panel-header">
-            <h3>Recent Transactions</h3>
-            <span className="side-tag">Timeline</span>
-          </div>
-          <div className="timeline">
-            {(activity.length
-              ? activity
-              : [{ id: "0", item: "POS Sync", action: "Added", quantity: 0, performedBy: "System", timestamp: new Date().toISOString() }]
-            ).slice(0, 5).map((a, i) => (
-              <div key={a.id || i} className="timeline-item">
-                <div className={`timeline-dot ${a.action === "Added" ? "in" : "out"}`} />
-                <div>
-                  <p className="timeline-title">{a.item}</p>
-                  <p className="timeline-meta">{a.action} • {a.quantity} units • {a.performedBy}</p>
-                </div>
-                <span className="timeline-time">
-                  {new Date(a.timestamp).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
       </div>
     </div>
   );

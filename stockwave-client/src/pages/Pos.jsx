@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import "./Pos.css";
 import {
-  Search, ScanBarcode, Sparkles, CreditCard,
-  PlusCircle, Minus, Plus, Clock, UserRound,
+  Search, CreditCard,
+  PlusCircle, Minus, Plus,
   AlertTriangle, Loader, CheckCircle, X
 } from "lucide-react";
 import { getProducts, getRecentActivity, posCheckout } from "../api/stockwaveApi";
@@ -20,6 +20,8 @@ export default function Pos() {
   const [error, setError]                 = useState(null);
   const [toast, setToast]                 = useState(null); // { type, message }
   const [paymentMethod, setPaymentMethod] = useState("Card");
+  const [lastReceipt, setLastReceipt]     = useState(null);
+  const [reviewedActivity, setReviewedActivity] = useState(null);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -42,20 +44,51 @@ export default function Pos() {
     setLoadingActivity(true);
     getRecentActivity()
       .then((res) => {
-        // Use raw transaction data directly — no fake invoice numbers
-        const transactions = res.data.slice(0, 8).map((a) => ({
-          id: a.id,
-          item: a.item,           // product name from API
-          action: a.action,       // "Sold", "Added", "Removed"
-          quantity: a.quantity,
-          performedBy: a.performedBy,
-          time: new Date(a.timestamp).toLocaleTimeString("en-PH", {
-            hour: "2-digit", minute: "2-digit"
-          }),
-          date: new Date(a.timestamp).toLocaleDateString("en-PH", {
-            month: "short", day: "numeric"
-          }),
-        }));
+        // Use only sale transactions for the POS feed
+        const grouped = new Map();
+        res.data
+          .filter((a) => a.action === "Sold")
+          .forEach((a) => {
+            const key = new Date(a.timestamp).toISOString();
+            const current = grouped.get(key) || {
+              id: key,
+              itemCount: 0,
+              quantity: 0,
+              items: [],
+              totalAmount: 0,
+              performedBy: a.performedBy,
+              timestamp: a.timestamp,
+            };
+            current.itemCount += 1;
+            current.quantity += a.quantity;
+            current.items.push({
+              name: a.item,
+              quantity: a.quantity,
+              price: a.price ?? 0,
+            });
+            current.totalAmount += (a.price ?? 0) * a.quantity;
+            grouped.set(key, current);
+          });
+
+        const transactions = Array.from(grouped.values())
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, 8)
+          .map((a) => ({
+            id: a.id,
+            item: `Batch sale (${a.itemCount} items)`,
+            itemCount: a.itemCount,
+            quantity: a.quantity,
+            performedBy: a.performedBy,
+            timestamp: a.timestamp,
+            items: a.items,
+            totalAmount: a.totalAmount,
+            time: new Date(a.timestamp).toLocaleTimeString("en-PH", {
+              hour: "2-digit", minute: "2-digit"
+            }),
+            date: new Date(a.timestamp).toLocaleDateString("en-PH", {
+              month: "short", day: "numeric"
+            }),
+          }));
         setActivity(transactions);
       })
       .catch(() => setActivity([]))
@@ -108,6 +141,22 @@ export default function Pos() {
     );
   };
 
+  const setQty = (id, value) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return;
+    setCartItems((prev) =>
+      prev
+        .map((i) => {
+          if (i.id !== id) return i;
+          const nextQty = Math.max(1, Math.min(i.maxStock, parsed));
+          if (nextQty > i.maxStock) {
+            showToast("error", `Only ${i.maxStock} units available.`);
+          }
+          return { ...i, qty: nextQty };
+        })
+    );
+  };
+
   const clearCart = () => setCartItems([]);
 
   // ── Checkout ─────────────────────────────────────
@@ -139,6 +188,16 @@ export default function Pos() {
         })
       );
 
+      setLastReceipt({
+        items: cartItems.map((i) => ({ ...i })),
+        subtotal,
+        tax,
+        total,
+        paymentMethod,
+        cashierName: user.fullName || "POS",
+        timestamp: new Date().toISOString(),
+      });
+
       showToast("success", `Checkout complete! ₱${total.toLocaleString()} charged via ${paymentMethod}.`);
       clearCart();
       loadActivity(); // refresh transaction feed
@@ -154,6 +213,169 @@ export default function Pos() {
   const subtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   const tax      = Math.round(subtotal * 0.07);
   const total    = subtotal + tax;
+
+  const handleSendReceipt = () => {
+    const receipt = cartItems.length > 0
+      ? {
+          items: cartItems.map((i) => ({ ...i })),
+          subtotal,
+          tax,
+          total,
+          paymentMethod,
+          cashierName: user.fullName || "POS",
+          timestamp: new Date().toISOString(),
+        }
+      : lastReceipt;
+
+    if (!receipt) {
+      showToast("error", "No receipt available yet.");
+      return;
+    }
+
+    const date = new Date(receipt.timestamp).toLocaleString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const rows = receipt.items.map((item) => `
+      <tr>
+        <td>${item.name}</td>
+        <td style="text-align:right">${item.qty}</td>
+        <td style="text-align:right">₱${(item.price * item.qty).toLocaleString()}</td>
+      </tr>
+    `).join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Receipt</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+          h1 { font-size: 18px; margin-bottom: 6px; }
+          .meta { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+          table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+          th, td { font-size: 12px; padding: 6px 0; border-bottom: 1px solid #e5e7eb; }
+          th { text-align: left; color: #6b7280; }
+          .totals { margin-top: 12px; font-size: 12px; }
+          .totals div { display: flex; justify-content: space-between; margin-top: 4px; }
+          .total { font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        <h1>StockWave Receipt</h1>
+        <div class="meta">${date} • Cashier: ${receipt.cashierName} • ${receipt.paymentMethod}</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align:right">Qty</th>
+              <th style="text-align:right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+        <div class="totals">
+          <div><span>Subtotal</span><span>₱${receipt.subtotal.toLocaleString()}</span></div>
+          <div><span>Tax (7%)</span><span>₱${receipt.tax.toLocaleString()}</span></div>
+          <div class="total"><span>Total</span><span>₱${receipt.total.toLocaleString()}</span></div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const win = window.open("", "_blank");
+    if (!win) {
+      showToast("error", "Popup blocked. Allow popups to print the receipt.");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => {
+      win.focus();
+      win.print();
+    };
+  };
+
+  const handlePrintActivityReceipt = (activityItem) => {
+    if (!activityItem) return;
+    const date = new Date(activityItem.timestamp).toLocaleString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const rows = (activityItem.items || []).map((item) => `
+      <tr>
+        <td>${item.name}</td>
+        <td style="text-align:right">${item.quantity}</td>
+        <td style="text-align:right">₱${(item.price ?? 0).toLocaleString()}</td>
+        <td style="text-align:right">₱${((item.price ?? 0) * item.quantity).toLocaleString()}</td>
+      </tr>
+    `).join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Receipt</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+          h1 { font-size: 18px; margin-bottom: 6px; }
+          .meta { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+          table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+          th, td { font-size: 12px; padding: 6px 0; border-bottom: 1px solid #e5e7eb; }
+          th { text-align: left; color: #6b7280; }
+          .row { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; }
+          .total { font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        <h1>StockWave Receipt</h1>
+        <div class="meta">${date} • Cashier: ${activityItem.performedBy}</div>
+        <div class="row"><span>Batch</span><span>${activityItem.itemCount} items</span></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align:right">Qty</th>
+              <th style="text-align:right">Price</th>
+              <th style="text-align:right">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+        <div class="row total"><span>Total Units</span><span>${activityItem.quantity}</span></div>
+        <div class="row total"><span>Total Amount</span><span>₱${(activityItem.totalAmount ?? 0).toLocaleString()}</span></div>
+      </body>
+      </html>
+    `;
+
+    const win = window.open("", "_blank");
+    if (!win) {
+      showToast("error", "Popup blocked. Allow popups to print the receipt.");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => {
+      win.focus();
+      win.print();
+    };
+  };
 
   const filtered = products.filter(
     (p) =>
@@ -187,8 +409,6 @@ export default function Pos() {
               placeholder="Search products or categories"
             />
           </div>
-          <button className="pos-action" onClick={loadProducts}><ScanBarcode size={16} /> Refresh</button>
-          <button className="pos-action primary"><Sparkles size={16} /> Smart Price</button>
         </div>
       </div>
 
@@ -272,57 +492,34 @@ export default function Pos() {
             <span className="cashier-status">On Duty</span>
           </div>
 
-          {/* Transaction Activity */}
-          <div className="pos-activity">
-            <div className="pos-activity-header">
-              <h4>Transaction Activity</h4>
-              <span>Live</span>
-            </div>
-            {loadingActivity ? (
-              <div className="pos-loading" style={{ padding: "12px 0" }}>
-                <Loader size={14} className="spin" /> Loading...
-              </div>
-            ) : activity.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#64748b", padding: "8px 0" }}>No transactions yet.</p>
-            ) : (
-              activity.map((item) => (
-                <div key={item.id} className="pos-activity-row">
-                  <div>
-                    <p>{item.item}</p>
-                    <span>{item.performedBy} • {item.time}</span>
-                  </div>
-                  <div className="pos-activity-meta">
-                    <strong>{item.quantity} {item.quantity === 1 ? "unit" : "units"}</strong>
-                    <span className={
-                      item.action === "Sold"    ? "pill paid" :
-                      item.action === "Added"   ? "pill restock" :
-                      item.action === "Removed" ? "pill refund" : "pill restock"
-                    }>{item.action}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
           {/* Live Cart */}
           <div className="pos-cart">
             <p className="cart-title">Live Cart {cartItems.length > 0 && `(${cartItems.length})`}</p>
             {cartItems.length === 0 ? (
               <p style={{ fontSize: 13, color: "#64748b", padding: "8px 0" }}>No items added yet.</p>
             ) : (
-              cartItems.map((item) => (
-                <div key={item.id} className="cart-row">
-                  <div className="cart-item-info">
-                    <span className="cart-item-name">{item.name}</span>
-                    <span className="cart-item-price">₱{(item.price * item.qty).toLocaleString()}</span>
+              <div className="pos-cart-items">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="cart-row">
+                    <div className="cart-item-info">
+                      <span className="cart-item-name">{item.name}</span>
+                      <span className="cart-item-price">₱{(item.price * item.qty).toLocaleString()}</span>
+                    </div>
+                    <div className="cart-qty">
+                      <button onClick={() => updateQty(item.id, -1)}><Minus size={12} /></button>
+                      <input
+                        className="cart-qty-input"
+                        type="number"
+                        min="1"
+                        max={item.maxStock}
+                        value={item.qty}
+                        onChange={(e) => setQty(item.id, e.target.value)}
+                      />
+                      <button onClick={() => updateQty(item.id, 1)}><Plus size={12} /></button>
+                    </div>
                   </div>
-                  <div className="cart-qty">
-                    <button onClick={() => updateQty(item.id, -1)}><Minus size={12} /></button>
-                    <span>{item.qty}</span>
-                    <button onClick={() => updateQty(item.id, 1)}><Plus size={12} /></button>
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
             {cartItems.length > 0 && (
               <button className="checkout-btn" onClick={handleCheckout} disabled={checkingOut}>
@@ -340,10 +537,45 @@ export default function Pos() {
             <div className="receipt-line"><span>Subtotal</span><strong>₱{subtotal.toLocaleString()}</strong></div>
             <div className="receipt-line"><span>Tax (7%)</span><strong>₱{tax.toLocaleString()}</strong></div>
             <div className="receipt-total"><span>Total</span><strong>₱{total.toLocaleString()}</strong></div>
-            <button className="receipt-btn">Send receipt</button>
+            <button className="receipt-btn" onClick={handleSendReceipt}>Send receipt</button>
           </div>
 
-          {/* Payment */}
+          {/* Transaction Activity */}
+          <div className="pos-activity">
+            <div className="pos-activity-header">
+              <h4>Transaction Activity</h4>
+              <div className="pos-activity-actions">
+                <span>Live</span>
+                <button className="pos-activity-print" onClick={handleSendReceipt}>Print receipt</button>
+              </div>
+            </div>
+            {loadingActivity ? (
+              <div className="pos-loading" style={{ padding: "12px 0" }}>
+                <Loader size={14} className="spin" /> Loading...
+              </div>
+            ) : activity.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#64748b", padding: "8px 0" }}>No sales yet.</p>
+            ) : (
+              activity.map((item) => (
+                <button
+                  key={item.id}
+                  className="pos-activity-row"
+                  onClick={() => setReviewedActivity(item)}
+                  type="button"
+                >
+                  <div>
+                    <p>{item.item}</p>
+                    <span>{item.performedBy} • {item.time}</span>
+                  </div>
+                  <div className="pos-activity-meta">
+                    <strong>{item.quantity} {item.quantity === 1 ? "unit" : "units"}</strong>
+                    <span className="pill paid">Sold</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+
           <div className="payment-sheet">
             <p className="payment-title">Payment</p>
             <div className="payment-methods">
@@ -359,31 +591,42 @@ export default function Pos() {
             </div>
             <div className="payment-status">Terminal online • Ready to process</div>
           </div>
-
-          {/* Queue */}
-          <div className="queue-panel">
-            <p className="queue-title">Customer Queue</p>
-            <div className="queue-dots">
-              <span className="queue-dot active" />
-              <span className="queue-dot" />
-              <span className="queue-dot" />
-            </div>
-            <div className="queue-meta">
-              <div><Clock size={14} /> Avg 1m 12s</div>
-              <div><UserRound size={14} /> 2 waiting</div>
-            </div>
-          </div>
         </aside>
       </div>
 
-      {/* Quick Actions */}
-      <div className="pos-quick-actions">
-        <button onClick={clearCart}><Plus size={14} /> New Order</button>
-        <button onClick={loadProducts}><ScanBarcode size={14} /> Refresh</button>
-        <button onClick={handleCheckout} disabled={checkingOut || cartItems.length === 0}>
-          <CreditCard size={14} /> Charge
-        </button>
-      </div>
+      {reviewedActivity && (
+        <div className="pos-modal" onClick={() => setReviewedActivity(null)}>
+          <div className="pos-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="pos-modal-header">
+              <h3>Transaction History</h3>
+              <button onClick={() => setReviewedActivity(null)}><X size={16} /></button>
+            </div>
+            <div className="pos-modal-body">
+              <div><strong>{reviewedActivity.item}</strong></div>
+              <div>Cashier: {reviewedActivity.performedBy}</div>
+              <div>Units: {reviewedActivity.quantity}</div>
+              <div>Total Amount: ₱{(reviewedActivity.totalAmount ?? 0).toLocaleString()}</div>
+              <div>Time: {reviewedActivity.date} • {reviewedActivity.time}</div>
+              {reviewedActivity.items?.length > 0 && (
+                <div className="pos-modal-items">
+                  {reviewedActivity.items.map((item, index) => (
+                    <div key={`${item.name}-${index}`} className="pos-modal-item">
+                      <span className="pos-modal-name">{item.name}</span>
+                      <span className="pos-modal-qty">{item.quantity}</span>
+                      <span className="pos-modal-line">₱{((item.price ?? 0) * item.quantity).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="pos-modal-actions">
+              <button className="pos-modal-btn" onClick={() => handlePrintActivityReceipt(reviewedActivity)}>Print receipt</button>
+              <button className="pos-modal-btn" onClick={() => setReviewedActivity(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

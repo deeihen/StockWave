@@ -103,7 +103,7 @@
   border: 1px solid var(--border);
   border-radius: 18px;
   overflow: auto;
-  max-height: 520px;
+  height: 520px;
   box-shadow: var(--shadow-soft);
 }
 .inv-table { width: 100%; border-collapse: collapse; min-width: 900px; }
@@ -167,7 +167,13 @@
 .expand-btn-alt:hover { border-color: rgba(91, 107, 222, 0.35); color: var(--text-main); }
 
 /* ── MOBILE CARDS ── */
-.inv-card-list { display: none; grid-template-columns: 1fr; gap: 16px; }
+.inv-card-list {
+  display: none;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  max-height: 520px;
+  overflow: auto;
+}
 .inv-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
 .inv-card.selected { border-color: rgba(91, 107, 222, 0.35); background: rgba(91, 107, 222, 0.08); }
 .inv-card-top { display: flex; justify-content: space-between; margin-bottom: 12px; }

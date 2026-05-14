@@ -65,7 +65,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.Product", b =>
@@ -111,7 +111,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", (string)null);
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.StockTransaction", b =>
@@ -148,7 +148,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("StockTransactions");
+                    b.ToTable("StockTransactions", (string)null);
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.User", b =>
@@ -229,7 +229,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.Notification", b =>
