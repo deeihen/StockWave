@@ -9,7 +9,7 @@ import Users from "./Users";
 import Settings from "./Settings";
 import Pos from "./Pos";
 import { getReportSummary, getRecentActivity, getLowStock } from "../api/stockwaveApi";
-import { askWaveAI, resetChat } from "../api/geminiApi";
+
 import {
   LayoutDashboard,
   Package,
@@ -67,23 +67,10 @@ export default function Dashboard({ onLogout }) {
 
   const isAdmin = user.role === "Admin";
   const { title, sub } = pageTitles[activePage] || pageTitles.dashboard;
-  const voicePanelOpen = voiceActive;
-  const gesturePanelOpen = gestureActive;
-  const dualPanelsOpen = voicePanelOpen && gesturePanelOpen;
 
   const handleVoiceCommand = (command, value) => {
-    if (command === "voice_off") {
-      setVoiceActive(false);
-      return;
-    }
-    if (command === "gesture_on") {
-      setGestureActive(true);
-      return;
-    }
-    if (command === "gesture_off") {
-      setGestureActive(false);
-      return;
-    }
+    if (command === "voice_off") { setVoiceActive(false); return; }
+    if (command === "gesture_on") { setGestureActive(true); return; }
     if (command === "navigate") {
       const item = navItems.find(i => i.id === value);
       if (item && (!item.adminOnly || isAdmin)) setActivePage(value);
@@ -98,20 +85,11 @@ export default function Dashboard({ onLogout }) {
       open_palm: "dashboard",
       peace: "inventory",
       point_up: "reports",
+      thumbs_up: "users",
       fist: "settings",
     };
-    if (gesture === "voice_start") {
-      setVoiceActive(true);
-      return;
-    }
-    if (gesture === "thumbs_up") {
-      setVoiceActive(false);
-      return;
-    }
-    if (gesture === "stop_camera") {
-      setGestureActive(false);
-      return;
-    }
+    if (gesture === "voice_start") { setVoiceActive(true); return; }
+    if (gesture === "stop_camera") { setGestureActive(false); return; }
     const page = gestureMap[gesture];
     const item = navItems.find(i => i.id === page);
     if (page && item && (!item.adminOnly || isAdmin)) setActivePage(page);
@@ -199,13 +177,11 @@ export default function Dashboard({ onLogout }) {
               onCommand={handleVoiceCommand}
               active={voiceActive}
               onToggle={setVoiceActive}
-              panelOffset={dualPanelsOpen ? "left" : "default"}
             />
             <GestureControl
               onGesture={handleGestureCommand}
               active={gestureActive}
               onToggle={setGestureActive}
-              panelOffset={dualPanelsOpen ? "right" : "default"}
             />
             <Notifications />
           </div>
@@ -454,146 +430,9 @@ function DashboardHome() {
           </div>
         </div>
 
-        {/* ── AI Ops Assistant Panel (live Gemini) ── */}
-        <div className="assistant-panel">
-          <div className="panel-header">
-            <h3>AI Ops Assistant</h3>
-            <span className="side-tag">WaveAI</span>
-          </div>
-          <AssistantPanel />
-        </div>
-      </div>
-
-      {/* ── Floating Ask WaveAI (live Gemini) ── */}
-      <AIFloat />
-    </div>
-  );
-}
-
-// ── Inline Chat Panel ──────────────────────────────
-function AssistantPanel() {
-  const [messages, setMessages] = useState([
-    { role: "ai", text: "Hi! I'm WaveAI. Ask me about stock levels, restocking, inventory trends, or ops." },
-  ]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const bottomRef = useRef(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const send = async () => {
-    const q = input.trim();
-    if (!q || loading) return;
-    setInput("");
-    setMessages(prev => [...prev, { role: "user", text: q }]);
-    setLoading(true);
-    try {
-      const reply = await askWaveAI(q);
-      setMessages(prev => [...prev, { role: "ai", text: reply }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "ai", text: "Sorry, I couldn't reach WaveAI right now. Please try again." }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="assistant-body">
-      <div className="assistant-messages">
-        {messages.map((m, i) => (
-          <div key={i} className={`assistant-message ${m.role === "user" ? "user-msg" : ""}`}>
-            {m.role === "ai" && <Sparkles size={14} />}
-            <p>{m.text}</p>
-          </div>
-        ))}
-        {loading && (
-          <div className="assistant-message">
-            <Sparkles size={14} />
-            <p className="ai-typing">WaveAI is thinking…</p>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-      <div className="assistant-input-row">
-        <input
-          className="assistant-input"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Ask about stock, trends, ops…"
-          disabled={loading}
-        />
-        <button className="assistant-send" onClick={send} disabled={loading}>
-          <Send size={14} />
-        </button>
       </div>
     </div>
   );
 }
 
-// ── Floating WaveAI Button ─────────────────────────
-function AIFloat() {
-  const [open, setOpen] = useState(false);
-  const [input, setInput] = useState("");
-  const [reply, setReply] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const ask = async () => {
-    const q = input.trim();
-    if (!q || loading) return;
-    setLoading(true);
-    setReply("");
-    try {
-      const res = await askWaveAI(q);
-      setReply(res);
-    } catch {
-      setReply("Couldn't reach WaveAI right now. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClose = () => {
-    setOpen(false);
-    setInput("");
-    setReply("");
-  };
-
-  return (
-    <div className="ai-float">
-      {open ? (
-        <div className="ai-float-expanded">
-          <div className="ai-float-header">
-            <span><Sparkles size={14} /> Ask WaveAI</span>
-            <button onClick={handleClose}><X size={14} /></button>
-          </div>
-          {reply && <p className="ai-float-reply">{reply}</p>}
-          {loading && <p className="ai-float-reply ai-typing">WaveAI is thinking…</p>}
-          <div className="ai-float-input-row">
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && ask()}
-              placeholder="Quick inventory question…"
-              autoFocus
-              disabled={loading}
-            />
-            <button onClick={ask} disabled={loading}>
-              {loading ? "…" : <Send size={13} />}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="ai-avatar"><Sparkles size={16} /></div>
-          <div>
-            <p>Need a quick insight?</p>
-            <button onClick={() => setOpen(true)}>Ask WaveAI</button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+// (WaveAI chat moved to WaveAIChat component — see src/components/WaveAIChat.jsx)
