@@ -206,7 +206,7 @@
 .qr-sub { font-size: 13px; color: var(--text-muted); }
 .qr-frame { aspect-ratio: 1; background: var(--bg-sub); border: 2px dashed var(--border); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
 .qr-frame.active { border: 2px solid var(--primary); border-style: solid; box-shadow: 0 0 0 6px var(--primary-light); }
-.qr-video { width: 100%; height: 100%; object-fit: cover; }
+.qr-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 .qr-icon-wrap { width: 64px; height: 64px; background: white; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 .qr-actions { display: flex; flex-direction: column; gap: 12px; }
 .qr-btn { height: 48px; background: white; border: 1.5px solid var(--border); border-radius: var(--radius-md); font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
