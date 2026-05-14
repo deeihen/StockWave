@@ -95,6 +95,7 @@ namespace StockWave.Server.Controllers
                     t.Action,
                     Item      = t.Product.Name,
                     t.Quantity,
+                    Price     = t.Product.Price,
                     t.PerformedBy,
                     t.Timestamp
                 })
