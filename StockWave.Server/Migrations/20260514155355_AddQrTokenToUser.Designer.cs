@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using StockWave.Server.Data;
@@ -11,9 +12,11 @@ using StockWave.Server.Data;
 namespace StockWave.Server.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260514155355_AddQrTokenToUser")]
+    partial class AddQrTokenToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -65,7 +68,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.Product", b =>
@@ -111,7 +114,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.StockTransaction", b =>
@@ -148,7 +151,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("StockTransactions", (string)null);
+                    b.ToTable("StockTransactions");
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.User", b =>
@@ -229,7 +232,7 @@ namespace StockWave.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("StockWave.Server.Models.Notification", b =>

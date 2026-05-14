@@ -57,6 +57,7 @@ namespace StockWave.Server.Controllers
                 Role         = "Admin",
                 AdminId      = null,
                 Identifier   = string.Empty,
+                QrToken      = await GenerateUniqueQrToken(),
                 Status       = "Active",
                 CreatedAt    = DateTime.UtcNow
             };
@@ -78,6 +79,12 @@ namespace StockWave.Server.Controllers
             if (user.Status == "Inactive")
                 return Unauthorized(new { message = "Your account is inactive. Contact admin." });
 
+            // Ensure existing users get a QR token
+            if (string.IsNullOrEmpty(user.QrToken))
+            {
+                user.QrToken = await GenerateUniqueQrToken();
+            }
+
             user.LastLogin = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
@@ -87,8 +94,46 @@ namespace StockWave.Server.Controllers
                 user  = new
                 {
                     user.Id, user.FullName, user.Username, user.Email,
-                    user.Role, user.AdminId, user.Identifier,
+                    user.Role, user.AdminId, user.Identifier, user.QrToken,
                     user.TwoFactorEnabled, user.LoginAlertsEnabled, user.SessionTimeoutMinutes
+                }
+            });
+        }
+
+        // POST /api/auth/login-qr
+        [HttpPost("login-qr")]
+        public async Task<IActionResult> LoginWithQr([FromBody] QrLoginDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Token))
+                return BadRequest(new { message = "QR Token is required." });
+
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.QrToken == dto.Token);
+
+            if (user == null)
+                return Unauthorized(new { message = "Invalid or expired QR code." });
+
+            if (user.Status == "Inactive")
+                return Unauthorized(new { message = "Your account is inactive. Contact admin." });
+
+            user.LastLogin = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                token = GenerateJwtToken(user),
+                user = new
+                {
+                    user.Id,
+                    user.FullName,
+                    user.Username,
+                    user.Email,
+                    user.Role,
+                    user.AdminId,
+                    user.Identifier,
+                    user.QrToken,
+                    user.TwoFactorEnabled,
+                    user.LoginAlertsEnabled,
+                    user.SessionTimeoutMinutes
                 }
             });
         }
@@ -125,6 +170,7 @@ namespace StockWave.Server.Controllers
                 Role         = "Staff",
                 AdminId      = adminId,
                 Identifier   = identifier,
+                QrToken      = await GenerateUniqueQrToken(),
                 Status       = "Active",
                 CreatedAt    = DateTime.UtcNow
             };
@@ -138,7 +184,7 @@ namespace StockWave.Server.Controllers
                 staff   = new
                 {
                     staff.Id, staff.FullName, staff.Username, staff.Email,
-                    staff.Role, staff.Identifier, staff.Status, staff.CreatedAt
+                    staff.Role, staff.Identifier, staff.QrToken, staff.Status, staff.CreatedAt
                 }
             });
         }
@@ -218,6 +264,34 @@ namespace StockWave.Server.Controllers
             return Ok(new { message = "Staff password has been reset." });
         }
 
+        // GET /api/auth/me
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMyProfile()
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var user   = await _db.Users.FindAsync(userId);
+            if (user == null) return NotFound(new { message = "User not found." });
+
+            // Ensure existing users get a QR token
+            if (string.IsNullOrEmpty(user.QrToken))
+            {
+                user.QrToken = await GenerateUniqueQrToken();
+                await _db.SaveChangesAsync();
+            }
+
+            return Ok(new
+            {
+                user = new
+                {
+                    user.Id, user.FullName, user.Username, user.Email,
+                    user.PhoneNumber, user.Bio, user.Role, user.AdminId, user.Identifier, user.QrToken,
+                    user.TwoFactorEnabled, user.LoginAlertsEnabled, user.SessionTimeoutMinutes,
+                    user.CreatedAt, user.LastLogin
+                }
+            });
+        }
+
         // PUT /api/auth/me/profile
         [HttpPut("me/profile")]
         [Authorize]
@@ -247,7 +321,7 @@ namespace StockWave.Server.Controllers
                 user = new
                 {
                     user.Id, user.FullName, user.Username, user.Email,
-                    user.PhoneNumber, user.Bio, user.Role, user.Identifier
+                    user.PhoneNumber, user.Bio, user.Role, user.Identifier, user.QrToken
                 }
             });
         }
@@ -444,11 +518,11 @@ if (user.Role == "Staff")
             var link = resetLink; // not encoding the URL itself, only embedding safely
 
             return $@"
-<!doctype html>
-<html>
-  <body style='margin:0;padding:0;background:#0f172a;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;'>
-    <div style='max-width:640px;margin:0 auto;padding:32px 16px;'>
-      <div style='background:#111827;border:1px solid #1f2937;border-radius:16px;padding:32px;'>
+        <!doctype html>
+        <html>
+        <body style='margin:0;padding:0;background:#0f172a;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;'>
+        <div style='max-width:640px;margin:0 auto;padding:32px 16px;'>
+        <div style='background:#111827;border:1px solid #1f2937;border-radius:16px;padding:32px;'>
         <div style='font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#34d399;font-weight:700;margin-bottom:12px;'>StockWave</div>
         <h1 style='margin:0 0 16px;font-size:28px;line-height:1.2;color:#f8fafc;'>Reset your password</h1>
         <p style='margin:0 0 16px;font-size:15px;line-height:1.7;color:#cbd5e1;'>Hi {name},</p>
@@ -458,20 +532,32 @@ if (user.Role == "Staff")
         </div>
         <p style='margin:0;font-size:13px;line-height:1.6;color:#94a3b8;'>If the button doesn't work, copy and paste this link:</p>
         <p style='margin:8px 0 0;font-size:13px;color:#93c5fd;word-break:break-all;'>{link}</p>
-      </div>
-    </div>
-  </body>
-</html>";
+        </div>
+        </div>
+        </body>
+        </html>";
         }
-    }
 
-    // ── DTOs ─────────────────────────────────────────────
-    public record RegisterDto(string FullName, string Username, string Email, string Password);
-    public record LoginDto(string Username, string Password);
-    public record CreateStaffDto(string FullName, string Username, string Password, string? Email);
-    public record UpdateMyProfileDto(string? FullName, string? Email, string? PhoneNumber, string? Bio);
-    public record ToggleStatusDto(string Status);
-    public record ResetStaffPasswordDto(string NewPassword);
-    public record ForgotPasswordDto(string UsernameOrEmail);
-    public record ResetPasswordDto(string Token, string NewPassword);
-}
+        private async Task<string> GenerateUniqueQrToken()
+        {
+            string token;
+            do
+            {
+                token = "waveqr_" + Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLower();
+            }
+            while (await _db.Users.AnyAsync(u => u.QrToken == token));
+            return token;
+        }
+        }
+
+        // ── DTOs ─────────────────────────────────────────────
+        public record RegisterDto(string FullName, string Username, string Email, string Password);
+        public record LoginDto(string Username, string Password);
+        public record QrLoginDto(string Token);
+        public record CreateStaffDto(string FullName, string Username, string Password, string? Email);
+        public record UpdateMyProfileDto(string? FullName, string? Email, string? PhoneNumber, string? Bio);
+        public record ToggleStatusDto(string Status);
+        public record ResetStaffPasswordDto(string NewPassword);
+        public record ForgotPasswordDto(string UsernameOrEmail);
+        public record ResetPasswordDto(string Token, string NewPassword);
+        }
