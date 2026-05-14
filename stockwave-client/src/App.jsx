@@ -2,6 +2,7 @@ import { useState } from "react";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import WaveAIChat from "./components/WaveAIChat";
 
 function App() {
   const [page, setPage] = useState(
@@ -18,7 +19,13 @@ function App() {
     return <Register onGoLogin={() => setPage("login")} />;
   }
   if (page === "dashboard") {
-    return <Dashboard onLogout={handleLogout} />;
+    return (
+      <>
+        <Dashboard onLogout={handleLogout} />
+        {/* WaveAI lives here — outside Dashboard so it survives all tab switches */}
+        <WaveAIChat />
+      </>
+    );
   }
   return (
     <Login
