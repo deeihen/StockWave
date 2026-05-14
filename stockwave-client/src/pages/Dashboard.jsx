@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Notifications from "../components/Notifications";
 import VoiceControl from "../components/VoiceControl";
 import GestureControl from "../components/GestureControl";
@@ -9,6 +9,7 @@ import Users from "./Users";
 import Settings from "./Settings";
 import Pos from "./Pos";
 import { getReportSummary, getRecentActivity, getLowStock } from "../api/stockwaveApi";
+import { askWaveAI, resetChat } from "../api/geminiApi";
 import {
   LayoutDashboard,
   Package,
@@ -29,7 +30,9 @@ import {
   CreditCard,
   ScanBarcode,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Send,
+  X,
 } from "lucide-react";
 
 const pageTitles = {
@@ -83,19 +86,11 @@ export default function Dashboard({ onLogout }) {
     }
     if (command === "navigate") {
       const item = navItems.find(i => i.id === value);
-      if (item && (!item.adminOnly || isAdmin)) {
-        setActivePage(value);
-      }
+      if (item && (!item.adminOnly || isAdmin)) setActivePage(value);
     }
     if (command === "logout") onLogout();
-    if (command === "export_report") {
-      setActivePage("reports");
-      setExportSignal((v) => v + 1);
-    }
-    if (command === "add_product") {
-      setActivePage("inventory");
-      setOpenAddSignal((v) => v + 1);
-    }
+    if (command === "export_report") { setActivePage("reports"); setExportSignal(v => v + 1); }
+    if (command === "add_product") { setActivePage("inventory"); setOpenAddSignal(v => v + 1); }
   };
 
   const handleGestureCommand = (gesture) => {
@@ -122,7 +117,6 @@ export default function Dashboard({ onLogout }) {
     if (page && item && (!item.adminOnly || isAdmin)) setActivePage(page);
   };
 
-
   const renderPage = () => {
     if (activePage === "inventory") return <Inventory openAddSignal={openAddSignal} />;
     if (activePage === "pos") return <Pos />;
@@ -138,9 +132,7 @@ export default function Dashboard({ onLogout }) {
       <aside className={`sidebar ${sidebarOpen ? "open" : "collapsed"}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <div className="s-logo-icon">
-              <LayoutDashboard size={20} />
-            </div>
+            <div className="s-logo-icon"><LayoutDashboard size={20} /></div>
             {sidebarOpen && <span className="s-logo-text">StockWave</span>}
           </div>
           <button className="sidebar-toggle" onClick={() => setSidebarOpen(v => !v)}>
@@ -152,16 +144,16 @@ export default function Dashboard({ onLogout }) {
           {navItems
             .filter(item => !item.adminOnly || isAdmin)
             .map(item => (
-            <button
-              key={item.id}
-              className={`nav-item ${activePage === item.id ? "active" : ""}`}
-              onClick={() => setActivePage(item.id)}
-              title={!sidebarOpen ? item.label : ""}
-            >
-              <span className="nav-icon"><item.icon size={20} /></span>
-              {sidebarOpen && <span className="nav-label">{item.label}</span>}
-            </button>
-          ))}
+              <button
+                key={item.id}
+                className={`nav-item ${activePage === item.id ? "active" : ""}`}
+                onClick={() => setActivePage(item.id)}
+                title={!sidebarOpen ? item.label : ""}
+              >
+                <span className="nav-icon"><item.icon size={20} /></span>
+                {sidebarOpen && <span className="nav-label">{item.label}</span>}
+              </button>
+            ))}
         </nav>
 
         <div className="sidebar-footer">
@@ -200,12 +192,8 @@ export default function Dashboard({ onLogout }) {
           </div>
           <div className="header-right">
             <div className="header-quick">
-              <button className="header-action">
-                <RefreshCw size={16} /> Sync
-              </button>
-              <button className="header-action primary">
-                <ScanBarcode size={16} /> Quick Scan
-              </button>
+              <button className="header-action"><RefreshCw size={16} /> Sync</button>
+              <button className="header-action primary"><ScanBarcode size={16} /> Quick Scan</button>
             </div>
             <VoiceControl
               onCommand={handleVoiceCommand}
@@ -244,7 +232,7 @@ export default function Dashboard({ onLogout }) {
   );
 }
 
-// ── Dashboard Home — wired to real API ────────────
+// ── Dashboard Home ─────────────────────────────────
 function DashboardHome() {
   const [summary, setSummary] = useState(null);
   const [activity, setActivity] = useState([]);
@@ -281,6 +269,7 @@ function DashboardHome() {
 
   const addedCount = activity.filter(a => a.action === "Added").length;
   const removedCount = activity.filter(a => a.action !== "Added").length;
+
   return (
     <div className="dash-content">
       <div className="overview-grid">
@@ -304,9 +293,7 @@ function DashboardHome() {
                 <span>Total Products</span>
               </div>
               <div className="stat-compact-value">{summary?.totalProducts ?? "—"}</div>
-              <div className="mini-chart">
-                <span style={{ width: "68%" }} />
-              </div>
+              <div className="mini-chart"><span style={{ width: "68%" }} /></div>
             </div>
             <div className="stat-compact">
               <div className="stat-compact-top warn">
@@ -324,9 +311,7 @@ function DashboardHome() {
                 <span>Items Added</span>
               </div>
               <div className="stat-compact-value">{summary?.itemsAddedThisMonth ?? "—"}</div>
-              <div className="mini-chart up">
-                <span style={{ width: "78%" }} />
-              </div>
+              <div className="mini-chart up"><span style={{ width: "78%" }} /></div>
             </div>
             <div className="stat-compact">
               <div className="stat-compact-top down">
@@ -334,9 +319,7 @@ function DashboardHome() {
                 <span>Items Removed</span>
               </div>
               <div className="stat-compact-value">{summary?.itemsRemovedThisMonth ?? "—"}</div>
-              <div className="mini-chart down">
-                <span style={{ width: "58%" }} />
-              </div>
+              <div className="mini-chart down"><span style={{ width: "58%" }} /></div>
             </div>
           </div>
 
@@ -349,12 +332,16 @@ function DashboardHome() {
               <div className="movement-bars">
                 <div className="movement-bar">
                   <span>Inbound</span>
-                  <div className="bar-track"><div className="bar-fill in" style={{ width: `${Math.min(addedCount * 14 + 22, 95)}%` }} /></div>
+                  <div className="bar-track">
+                    <div className="bar-fill in" style={{ width: `${Math.min(addedCount * 14 + 22, 95)}%` }} />
+                  </div>
                   <strong>{addedCount}</strong>
                 </div>
                 <div className="movement-bar">
                   <span>Outbound</span>
-                  <div className="bar-track"><div className="bar-fill out" style={{ width: `${Math.min(removedCount * 14 + 18, 95)}%` }} /></div>
+                  <div className="bar-track">
+                    <div className="bar-fill out" style={{ width: `${Math.min(removedCount * 14 + 18, 95)}%` }} />
+                  </div>
                   <strong>{removedCount}</strong>
                 </div>
               </div>
@@ -406,7 +393,9 @@ function DashboardHome() {
                       <p className="feed-title">{a.item}</p>
                       <p className="feed-meta">{a.performedBy} • {a.quantity} units</p>
                     </div>
-                    <span className="feed-time">{new Date(a.timestamp).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="feed-time">
+                      {new Date(a.timestamp).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
                   </div>
                 ))
               )}
@@ -447,46 +436,164 @@ function DashboardHome() {
             <span className="side-tag">Timeline</span>
           </div>
           <div className="timeline">
-            {(activity.length ? activity : [{ id: "0", item: "POS Sync", action: "Added", quantity: 0, performedBy: "System", timestamp: new Date().toISOString() }])
-              .slice(0, 5)
-              .map((a, i) => (
-                <div key={a.id || i} className="timeline-item">
-                  <div className={`timeline-dot ${a.action === "Added" ? "in" : "out"}`} />
-                  <div>
-                    <p className="timeline-title">{a.item}</p>
-                    <p className="timeline-meta">{a.action} • {a.quantity} units • {a.performedBy}</p>
-                  </div>
-                  <span className="timeline-time">{new Date(a.timestamp).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</span>
+            {(activity.length
+              ? activity
+              : [{ id: "0", item: "POS Sync", action: "Added", quantity: 0, performedBy: "System", timestamp: new Date().toISOString() }]
+            ).slice(0, 5).map((a, i) => (
+              <div key={a.id || i} className="timeline-item">
+                <div className={`timeline-dot ${a.action === "Added" ? "in" : "out"}`} />
+                <div>
+                  <p className="timeline-title">{a.item}</p>
+                  <p className="timeline-meta">{a.action} • {a.quantity} units • {a.performedBy}</p>
                 </div>
-              ))}
+                <span className="timeline-time">
+                  {new Date(a.timestamp).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
+        {/* ── AI Ops Assistant Panel (live Gemini) ── */}
         <div className="assistant-panel">
           <div className="panel-header">
             <h3>AI Ops Assistant</h3>
-            <span className="side-tag">On</span>
+            <span className="side-tag">WaveAI</span>
           </div>
-          <div className="assistant-body">
-            <div className="assistant-message">
-              <Sparkles size={16} />
-              <p>Low stock on "Display Hubs". I drafted a restock order.</p>
-            </div>
-            <div className="assistant-suggest">
-              <button>View Draft</button>
-              <button>Auto-send</button>
-            </div>
-          </div>
+          <AssistantPanel />
         </div>
       </div>
 
-      <div className="ai-float">
-        <div className="ai-avatar"><Sparkles size={16} /></div>
-        <div>
-          <p>Need a quick insight?</p>
-          <button>Ask WaveAI</button>
-        </div>
+      {/* ── Floating Ask WaveAI (live Gemini) ── */}
+      <AIFloat />
+    </div>
+  );
+}
+
+// ── Inline Chat Panel ──────────────────────────────
+function AssistantPanel() {
+  const [messages, setMessages] = useState([
+    { role: "ai", text: "Hi! I'm WaveAI. Ask me about stock levels, restocking, inventory trends, or ops." },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const send = async () => {
+    const q = input.trim();
+    if (!q || loading) return;
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", text: q }]);
+    setLoading(true);
+    try {
+      const reply = await askWaveAI(q);
+      setMessages(prev => [...prev, { role: "ai", text: reply }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "ai", text: "Sorry, I couldn't reach WaveAI right now. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="assistant-body">
+      <div className="assistant-messages">
+        {messages.map((m, i) => (
+          <div key={i} className={`assistant-message ${m.role === "user" ? "user-msg" : ""}`}>
+            {m.role === "ai" && <Sparkles size={14} />}
+            <p>{m.text}</p>
+          </div>
+        ))}
+        {loading && (
+          <div className="assistant-message">
+            <Sparkles size={14} />
+            <p className="ai-typing">WaveAI is thinking…</p>
+          </div>
+        )}
+        <div ref={bottomRef} />
       </div>
+      <div className="assistant-input-row">
+        <input
+          className="assistant-input"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && send()}
+          placeholder="Ask about stock, trends, ops…"
+          disabled={loading}
+        />
+        <button className="assistant-send" onClick={send} disabled={loading}>
+          <Send size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Floating WaveAI Button ─────────────────────────
+function AIFloat() {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [reply, setReply] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const ask = async () => {
+    const q = input.trim();
+    if (!q || loading) return;
+    setLoading(true);
+    setReply("");
+    try {
+      const res = await askWaveAI(q);
+      setReply(res);
+    } catch {
+      setReply("Couldn't reach WaveAI right now. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setInput("");
+    setReply("");
+  };
+
+  return (
+    <div className="ai-float">
+      {open ? (
+        <div className="ai-float-expanded">
+          <div className="ai-float-header">
+            <span><Sparkles size={14} /> Ask WaveAI</span>
+            <button onClick={handleClose}><X size={14} /></button>
+          </div>
+          {reply && <p className="ai-float-reply">{reply}</p>}
+          {loading && <p className="ai-float-reply ai-typing">WaveAI is thinking…</p>}
+          <div className="ai-float-input-row">
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && ask()}
+              placeholder="Quick inventory question…"
+              autoFocus
+              disabled={loading}
+            />
+            <button onClick={ask} disabled={loading}>
+              {loading ? "…" : <Send size={13} />}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="ai-avatar"><Sparkles size={16} /></div>
+          <div>
+            <p>Need a quick insight?</p>
+            <button onClick={() => setOpen(true)}>Ask WaveAI</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
