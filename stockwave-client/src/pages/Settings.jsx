@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Settings.css";
-import { changeMyPassword, updateSecuritySettings, clearActivityLogs, resetSystem, updateUser } from "../api/stockwaveApi";
+import { changeMyPassword, updateSecuritySettings, clearActivityLogs, resetSystem, updateUser, createStaff, getMyStaff, deleteStaff, toggleStaffStatus } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
-import { 
-  User as UserIcon, 
-  Settings as SettingsIcon, 
-  Bell, 
-  Lock, 
-  CheckCircle, 
+import {
+  User as UserIcon,
+  Settings as SettingsIcon,
+  Bell,
+  Lock,
+  CheckCircle,
   AlertTriangle,
   Mail,
   Phone,
@@ -16,30 +16,32 @@ import {
   Clock,
   ShieldCheck,
   Smartphone,
-  Trash2
+  Trash2,
+  Users,
+  Plus,
+  Badge,
+  UserX,
+  UserCheck,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 const tabs = [
-  { id: "profile", label: "Account Profile", icon: UserIcon },
-  { id: "system", label: "General Settings", icon: SettingsIcon },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "security", label: "Security & Safety", icon: Lock },
+  { id: "profile",       label: "Account Profile",   icon: UserIcon },
+  { id: "system",        label: "General Settings",  icon: SettingsIcon },
+  { id: "notifications", label: "Notifications",     icon: Bell },
+  { id: "security",      label: "Security & Safety", icon: Lock },
+  { id: "staff",         label: "Staff Accounts",    icon: Users, adminOnly: true },
 ];
 
-// ── Toggle Switch ──────────────────────────────────
 function Toggle({ checked, onChange }) {
   return (
-    <button
-      type="button"
-      className={`toggle-switch ${checked ? "on" : "off"}`}
-      onClick={() => onChange(!checked)}
-    >
+    <button type="button" className={`toggle-switch ${checked ? "on" : "off"}`} onClick={() => onChange(!checked)}>
       <span className="toggle-thumb" />
     </button>
   );
 }
 
-// ── Section Card ───────────────────────────────────
 function Section({ title, sub, icon: Icon, children }) {
   return (
     <div className="settings-section">
@@ -55,7 +57,6 @@ function Section({ title, sub, icon: Icon, children }) {
   );
 }
 
-// ── Field Row ──────────────────────────────────────
 function FieldRow({ label, sub, children }) {
   return (
     <div className="field-row">
@@ -68,46 +69,203 @@ function FieldRow({ label, sub, children }) {
   );
 }
 
+// ── Staff Tab ──────────────────────────────────────
+function StaffTab() {
+  const [staffList, setStaffList]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [form, setForm]             = useState({ fullName: "", username: "", password: "" });
+  const [showPass, setShowPass]     = useState(false);
+  const [creating, setCreating]     = useState(false);
+  const [error, setError]           = useState("");
+  const [success, setSuccess]       = useState("");
+
+  const loadStaff = async () => {
+    setLoading(true);
+    try {
+      const res = await getMyStaff();
+      setStaffList(res.data);
+    } catch {
+      setError("Failed to load staff.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadStaff(); }, []);
+
+  const handleCreate = async () => {
+    setError(""); setSuccess("");
+    if (!form.fullName.trim() || !form.username.trim() || !form.password.trim()) {
+      setError("All fields are required."); return;
+    }
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters."); return;
+    }
+    setCreating(true);
+    try {
+      const res = await createStaff(form);
+      setSuccess(`Staff "${res.data.staff.fullName}" created! Identifier: ${res.data.staff.identifier}`);
+      setForm({ fullName: "", username: "", password: "" });
+      loadStaff();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to create staff.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Remove staff account "${name}"? This cannot be undone.`)) return;
+    try {
+      await deleteStaff(id);
+      setStaffList(prev => prev.filter(s => s.id !== id));
+      setSuccess(`"${name}" has been removed.`);
+    } catch {
+      setError("Failed to remove staff.");
+    }
+  };
+
+  const handleToggleStatus = async (id, currentStatus) => {
+    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    try {
+      await toggleStaffStatus(id, newStatus);
+      setStaffList(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+    } catch {
+      setError("Failed to update status.");
+    }
+  };
+
+  return (
+    <div className="tab-pane">
+      {/* ── Create Staff ── */}
+      <Section title="Create Staff Account" sub="Staff share your workspace data" icon={Plus}>
+        {error   && <div className="pass-error-alt">{error}</div>}
+        {success && <div className="pass-success-alt"><CheckCircle size={14} /> {success}</div>}
+        <div className="form-grid">
+          <div className="form-field">
+            <label className="form-label">Full Name</label>
+            <input className="form-input" placeholder="e.g. Juan dela Cruz"
+              value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Username</label>
+            <input className="form-input" placeholder="e.g. juan_staff"
+              value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
+          </div>
+          <div className="form-field full">
+            <label className="form-label">Password</label>
+            <div className="input-with-icon">
+              <input className="form-input" type={showPass ? "text" : "password"}
+                placeholder="Min. 6 characters"
+                value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+              <button type="button" className="input-icon-abs input-icon-btn"
+                onClick={() => setShowPass(v => !v)} style={{ cursor: "pointer", background: "none", border: "none" }}>
+                {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="staff-identifier-note">
+          <Badge size={13} />
+          A unique identifier (e.g. <code>.waveKx9m</code>) will be auto-generated for this staff.
+        </div>
+        <div className="section-actions">
+          <button className="btn-save" onClick={handleCreate} disabled={creating}>
+            {creating ? "Creating..." : "Create Staff Account"}
+          </button>
+        </div>
+      </Section>
+
+      {/* ── Staff List ── */}
+      <Section title="Your Staff" sub={`${staffList.length} account${staffList.length !== 1 ? "s" : ""} in your workspace`} icon={Users}>
+        {loading ? (
+          <p className="frl-sub" style={{ padding: "12px 0" }}>Loading staff...</p>
+        ) : staffList.length === 0 ? (
+          <div className="staff-empty">
+            <Users size={32} opacity={0.3} />
+            <p>No staff accounts yet. Create one above.</p>
+          </div>
+        ) : (
+          <div className="staff-list">
+            {staffList.map(s => (
+              <div key={s.id} className="staff-row">
+                <div className="staff-avatar">
+                  {s.fullName?.[0]?.toUpperCase() || "S"}
+                </div>
+                <div className="staff-info">
+                  <p className="staff-name">{s.fullName}</p>
+                  <p className="staff-meta">@{s.username}</p>
+                  <span className="staff-identifier">{s.identifier}</span>
+                </div>
+                <div className="staff-right">
+                  <span className={`staff-status ${s.status === "Active" ? "active" : "inactive"}`}>
+                    {s.status}
+                  </span>
+                  <p className="staff-joined">
+                    Joined {new Date(s.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                  {s.lastLogin && (
+                    <p className="staff-joined">
+                      Last login {new Date(s.lastLogin).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}
+                    </p>
+                  )}
+                </div>
+                <div className="staff-actions">
+                  <button
+                    className={`staff-btn ${s.status === "Active" ? "warn" : "ok"}`}
+                    onClick={() => handleToggleStatus(s.id, s.status)}
+                    title={s.status === "Active" ? "Deactivate" : "Activate"}
+                  >
+                    {s.status === "Active" ? <UserX size={14} /> : <UserCheck size={14} />}
+                  </button>
+                  <button className="staff-btn danger"
+                    onClick={() => handleDelete(s.id, s.fullName)} title="Remove">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
-  const [saved, setSaved] = useState(false);
-  const { run, isRunning } = useActionGuard(500);
+  const [saved, setSaved]         = useState(false);
+  const { run, isRunning }        = useActionGuard(500);
 
-  // Profile state
-  const [profile, setProfile] = useState(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    return {
-      id: user.id,
-      name: user.fullName || "",
-      username: user.username || "",
-      email: user.email || "",
-      phone: user.phoneNumber || "",
-      role: user.role || "Admin",
-      bio: user.bio || "",
-    };
-  });
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const isAdmin = user.role === "Admin";
+
+  const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
+
+  const [profile, setProfile] = useState(() => ({
+    id:       user.id,
+    name:     user.fullName    || "",
+    username: user.username    || "",
+    email:    user.email       || "",
+    phone:    user.phoneNumber || "",
+    role:     user.role        || "Admin",
+    bio:      user.bio         || "",
+  }));
 
   const handleSaveProfile = async () => {
     await run("save-profile", async () => {
       try {
         await updateUser(profile.id, {
-          fullName: profile.name,
-          username: profile.username,
-          email: profile.email,
+          fullName:    profile.name,
+          username:    profile.username,
+          email:       profile.email,
           phoneNumber: profile.phone,
-          bio: profile.bio
+          bio:         profile.bio
         });
-
-        // Update localStorage
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        user.fullName = profile.name;
-        user.username = profile.username;
-        user.email = profile.email;
-        user.phoneNumber = profile.phone;
-        user.bio = profile.bio;
-        localStorage.setItem("user", JSON.stringify(user));
-
+        const u = JSON.parse(localStorage.getItem("user") || "{}");
+        Object.assign(u, { fullName: profile.name, username: profile.username, email: profile.email, phoneNumber: profile.phone, bio: profile.bio });
+        localStorage.setItem("user", JSON.stringify(u));
         showSaved();
       } catch (err) {
         alert(err.response?.data?.message || "Failed to update profile.");
@@ -116,63 +274,39 @@ export default function Settings() {
   };
 
   const [system, setSystem] = useState({
-    companyName: "StockWave Inventory",
-    currency: "PHP",
-    timezone: "Asia/Manila",
-    lowStockThreshold: 10,
-    language: "English",
-    dateFormat: "MM/DD/YYYY",
+    companyName: "StockWave Inventory", currency: "PHP",
+    timezone: "Asia/Manila", lowStockThreshold: 10,
+    language: "English", dateFormat: "MM/DD/YYYY",
   });
 
-  // Notifications state
   const [notif, setNotif] = useState({
-    lowStockAlert: true,
-    newUserAlert: true,
-    reportReady: false,
-    emailDigest: true,
-    browserNotif: false,
-    restockReminder: true,
+    lowStockAlert: true, newUserAlert: true,
+    reportReady: false, emailDigest: true,
+    browserNotif: false, restockReminder: true,
   });
 
-  // Security state
-  const [security, setSecurity] = useState(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    return {
-      twoFactor: user.twoFactorEnabled || false,
-      sessionTimeout: user.sessionTimeoutMinutes?.toString() || "30",
-      loginAlerts: user.loginAlertsEnabled !== false,
-    };
-  });
-  const [securityLoading, setSecurityLoading] = useState(false);
-  const [securityMessage, setSecurityMessage] = useState("");
-  const [passwords, setPasswords] = useState({ current: "", newPass: "", confirm: "" });
-  const [passError, setPassError] = useState("");
-  const [passSuccess, setPassSuccess] = useState(false);
+  const [security, setSecurity] = useState(() => ({
+    twoFactor:      user.twoFactorEnabled      || false,
+    sessionTimeout: user.sessionTimeoutMinutes?.toString() || "30",
+    loginAlerts:    user.loginAlertsEnabled !== false,
+  }));
 
-  const showSaved = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
+  const [securityLoading, setSecurityLoading]   = useState(false);
+  const [securityMessage, setSecurityMessage]   = useState("");
+  const [passwords, setPasswords]               = useState({ current: "", newPass: "", confirm: "" });
+  const [passError, setPassError]               = useState("");
+  const [passSuccess, setPassSuccess]           = useState(false);
+
+  const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
 
   const handlePasswordChange = async () => {
-    setPassError("");
-    setPassSuccess(false);
-    if (!passwords.current || !passwords.newPass || !passwords.confirm) {
-      setPassError("Please fill in all password fields."); return;
-    }
-    if (passwords.newPass.length < 6) {
-      setPassError("New password must be at least 6 characters."); return;
-    }
-    if (passwords.newPass !== passwords.confirm) {
-      setPassError("New passwords do not match."); return;
-    }
-
+    setPassError(""); setPassSuccess(false);
+    if (!passwords.current || !passwords.newPass || !passwords.confirm) { setPassError("Please fill in all password fields."); return; }
+    if (passwords.newPass.length < 6) { setPassError("New password must be at least 6 characters."); return; }
+    if (passwords.newPass !== passwords.confirm) { setPassError("New passwords do not match."); return; }
     await run("change-password", async () => {
       try {
-        await changeMyPassword({
-          currentPassword: passwords.current,
-          newPassword: passwords.newPass,
-        });
+        await changeMyPassword({ currentPassword: passwords.current, newPassword: passwords.newPass });
         setPassSuccess(true);
         setPasswords({ current: "", newPass: "", confirm: "" });
       } catch (err) {
@@ -183,108 +317,69 @@ export default function Settings() {
 
   const handleSecurityUpdate = async () => {
     await run("save-security", async () => {
-      setSecurityLoading(true);
-      setSecurityMessage("");
+      setSecurityLoading(true); setSecurityMessage("");
       try {
         await updateSecuritySettings({
-          enableTwoFactor: security.twoFactor,
-          loginAlertsEnabled: security.loginAlerts,
-          sessionTimeoutMinutes: parseInt(security.sessionTimeout) || 30,
+          twoFactorEnabled:       security.twoFactor,
+          sessionTimeoutMinutes:  parseInt(security.sessionTimeout),
+          loginAlertsEnabled:     security.loginAlerts,
         });
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        user.twoFactorEnabled = security.twoFactor;
-        user.loginAlertsEnabled = security.loginAlerts;
-        user.sessionTimeoutMinutes = parseInt(security.sessionTimeout) || 30;
-        localStorage.setItem("user", JSON.stringify(user));
-        setSecurityMessage("Security settings updated successfully!");
-        showSaved();
+        const u = JSON.parse(localStorage.getItem("user") || "{}");
+        u.twoFactorEnabled = security.twoFactor;
+        u.sessionTimeoutMinutes = parseInt(security.sessionTimeout);
+        u.loginAlertsEnabled = security.loginAlerts;
+        localStorage.setItem("user", JSON.stringify(u));
+        setSecurityMessage("Security settings updated.");
       } catch (err) {
-        setSecurityMessage(err.response?.data?.message || "Failed to update security settings.");
+        setSecurityMessage(err.response?.data?.message || "Failed to update.");
       } finally {
         setSecurityLoading(false);
       }
     });
   };
 
-  const handleClearLogs = async () => {
-    if (!confirm("Clear all activity logs? This cannot be undone.")) return;
-    await run("clear-logs", async () => {
-      try {
-        await clearActivityLogs();
-        alert("Logs cleared.");
-      } catch (err) {
-        alert("Failed to clear logs.");
-      }
-    });
-  };
-
-  const handleResetSystem = async () => {
-    if (!confirm("Reset system to defaults? This affects all user settings.")) return;
-    await run("reset-system", async () => {
-      try {
-        await resetSystem();
-        window.location.reload();
-      } catch (err) {
-        alert("Failed to reset system.");
-      }
-    });
-  };
+  const handleClearLogs    = async () => { if (window.confirm("Wipe all activity logs?")) { try { await clearActivityLogs(); showSaved(); } catch { alert("Failed."); } } };
+  const handleResetSystem  = async () => { if (window.confirm("Factory reset all system settings?")) { try { await resetSystem(); showSaved(); } catch { alert("Failed."); } } };
 
   return (
-    <div className="set-root">
-      {/* ── PAGE HEADER ── */}
-      <div className="set-header">
-        <div>
-          <h1 className="set-title">Preferences</h1>
-          <p className="set-sub">Configure your individual account and global system rules</p>
+    <div className="settings-root">
+      {saved && (
+        <div className="settings-toast">
+          <CheckCircle size={16} /> Changes saved
         </div>
-        {saved && (
-          <div className="saved-toast">
-            <CheckCircle size={14} /> <span>Saved Successfully</span>
-          </div>
-        )}
-      </div>
+      )}
 
-      <div className="set-layout">
-        {/* ── SIDEBAR TABS ── */}
-        <aside className="set-sidebar">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              className={`set-tab ${activeTab === t.id ? "active" : ""}`}
-              onClick={() => setActiveTab(t.id)}
-            >
-              <span className="set-tab-icon"><t.icon size={16} /></span>
-              <span>{t.label}</span>
+      <div className="settings-layout">
+        {/* ── Sidebar Tabs ── */}
+        <aside className="settings-sidebar">
+          <p className="settings-sidebar-label">Preferences</p>
+          {visibleTabs.map(t => (
+            <button key={t.id}
+              className={`settings-tab ${activeTab === t.id ? "active" : ""}`}
+              onClick={() => setActiveTab(t.id)}>
+              <t.icon size={16} />
+              {t.label}
+              {t.id === "staff" && <span className="staff-tab-badge">Admin</span>}
             </button>
           ))}
         </aside>
 
-        {/* ── CONTENT ── */}
-        <div className="set-content">
+        {/* ── Content ── */}
+        <div className="settings-content">
 
-          {/* ── PROFILE ── */}
+          {/* PROFILE */}
           {activeTab === "profile" && (
             <div className="tab-pane">
-              <Section title="Personal Information" sub="Public and private account details" icon={UserIcon}>
-                <div className="profile-header-alt">
-                  <div className="settings-avatar-large">
-                    {profile.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="profile-header-text">
-                    <p className="ph-name">{profile.name}</p>
-                    <p className="ph-role">{profile.role}</p>
-                  </div>
+              <Section title="Personal Information" sub="Your public profile details" icon={UserIcon}>
+                <div className="profile-role-badge">
+                  <span className={`role-pill ${profile.role.toLowerCase()}`}>{profile.role}</span>
+                  {user.identifier && <span className="identifier-pill">{user.identifier}</span>}
                 </div>
-
                 <div className="form-grid">
-                  <div className="form-field">
+                  <div className="form-field full">
                     <label className="form-label">Full Name</label>
-                    <div className="input-with-icon">
-                      <UserIcon size={16} className="input-icon-abs" />
-                      <input className="form-input" value={profile.name}
-                        onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
-                    </div>
+                    <input className="form-input" value={profile.name}
+                      onChange={e => setProfile(p => ({ ...p, name: e.target.value }))} />
                   </div>
                   <div className="form-field">
                     <label className="form-label">Username</label>
@@ -322,7 +417,7 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ── SYSTEM ── */}
+          {/* SYSTEM */}
           {activeTab === "system" && (
             <div className="tab-pane">
               <Section title="System Rules" sub="Defaults and localization" icon={SettingsIcon}>
@@ -368,13 +463,13 @@ export default function Settings() {
               </Section>
               <div className="section-actions">
                 <button className="btn-save" onClick={() => run("save-system", async () => showSaved())} disabled={isRunning("save-system")}>
-                   Apply Changes
+                  Apply Changes
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── NOTIFICATIONS ── */}
+          {/* NOTIFICATIONS */}
           {activeTab === "notifications" && (
             <div className="tab-pane">
               <Section title="Event Subscriptions" sub="Automated system alerts" icon={Bell}>
@@ -388,7 +483,6 @@ export default function Settings() {
                   <Toggle checked={notif.emailDigest} onChange={v => setNotif(n => ({ ...n, emailDigest: v }))} />
                 </FieldRow>
               </Section>
-
               <Section title="Communication" sub="Delivery methods" icon={Mail}>
                 <FieldRow label="Desktop Notifications" sub="Real-time browser push alerts">
                   <Toggle checked={notif.browserNotif} onChange={v => setNotif(n => ({ ...n, browserNotif: v }))} />
@@ -402,11 +496,11 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ── SECURITY ── */}
+          {/* SECURITY */}
           {activeTab === "security" && (
             <div className="tab-pane">
               <Section title="Access Control" sub="Password and authentication" icon={ShieldCheck}>
-                {passError && <div className="pass-error-alt">{passError}</div>}
+                {passError   && <div className="pass-error-alt">{passError}</div>}
                 {passSuccess && <div className="pass-success-alt"><CheckCircle size={14} /> Updated</div>}
                 <div className="form-grid">
                   <div className="form-field full">
@@ -416,7 +510,7 @@ export default function Settings() {
                   </div>
                   <div className="form-field">
                     <label className="form-label">New Password</label>
-                    <input className="form-input" type="password" 
+                    <input className="form-input" type="password"
                       value={passwords.newPass} onChange={e => setPasswords(p => ({ ...p, newPass: e.target.value }))} />
                   </div>
                   <div className="form-field">
@@ -429,7 +523,6 @@ export default function Settings() {
                   Update Password
                 </button>
               </Section>
-
               <Section title="Device & Session" sub="Global safety settings" icon={Smartphone}>
                 <FieldRow label="Multi-Factor Auth" sub="Additional login protection">
                   <Toggle checked={security.twoFactor} onChange={v => setSecurity(s => ({ ...s, twoFactor: v }))} />
@@ -442,11 +535,13 @@ export default function Settings() {
                     <option value="0">Off</option>
                   </select>
                 </FieldRow>
+                {securityMessage && <p className="frl-sub" style={{ marginTop: 8 }}>{securityMessage}</p>}
                 <div className="section-actions">
-                  <button className="btn-save" onClick={handleSecurityUpdate}>Apply Security</button>
+                  <button className="btn-save" onClick={handleSecurityUpdate} disabled={securityLoading}>
+                    Apply Security
+                  </button>
                 </div>
               </Section>
-
               <div className="danger-zone-alt">
                 <div className="dz-header">
                   <AlertTriangle size={18} color="#be123c" />
@@ -470,8 +565,13 @@ export default function Settings() {
             </div>
           )}
 
+          {/* STAFF — Admin only */}
+          {activeTab === "staff" && isAdmin && <StaffTab />}
+
         </div>
       </div>
     </div>
   );
 }
+
+/* append to Settings.css instead — staff-specific styles */

@@ -45,3 +45,10 @@ export const getRecentActivity = () => api.get("/reports/recent-activity");
 export const getCategoryBreakdown = () => api.get("/reports/category-breakdown");
 export const getStockMovement = () => api.get("/reports/stock-movement");
 export const getTopProducts = () => api.get("/reports/top-products");
+// ── Add these to stockwaveApi.js ──────────────────────────────────
+
+// Staff management (Admin only)
+export const createStaff       = (data) => api.post("/auth/create-staff", data);
+export const getMyStaff        = ()     => api.get("/auth/my-staff");
+export const deleteStaff       = (id)   => api.delete(`/auth/staff/${id}`);
+export const toggleStaffStatus = (id, status) => api.put(`/auth/staff/${id}/status`, { status });
