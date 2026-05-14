@@ -445,3 +445,64 @@
   border-color: #d1d5db;
 }
 
+
+/* -- QR Scanner Overlay -- */
+.qr-scanner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.qr-scanner-mask {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.5);
+}
+.qr-scanner-mask.top { top: 0; left: 0; right: 0; height: 15%; }
+.qr-scanner-mask.bottom { bottom: 0; left: 0; right: 0; height: 15%; }
+.qr-scanner-mask.left { top: 15%; bottom: 15%; left: 0; width: 15%; }
+.qr-scanner-mask.right { top: 15%; bottom: 15%; right: 0; width: 15%; }
+
+.qr-scanner-window {
+  position: relative;
+  width: 70%;
+  height: 70%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.2); /* Fallback for mask */
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.qr-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--primary);
+  z-index: 10;
+}
+.qr-corner.top-left { top: 0; left: 0; border-right: none; border-bottom: none; border-top-left-radius: 12px; }
+.qr-corner.top-right { top: 0; right: 0; border-left: none; border-bottom: none; border-top-right-radius: 12px; }
+.qr-corner.bottom-left { bottom: 0; left: 0; border-right: none; border-top: none; border-bottom-left-radius: 12px; }
+.qr-corner.bottom-right { bottom: 0; right: 0; border-left: none; border-top: none; border-bottom-right-radius: 12px; }
+
+.qr-scan-line {
+  position: absolute;
+  top: 0;
+  left: 5%;
+  width: 90%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  box-shadow: 0 0 8px var(--primary);
+  animation: qr-scan-move 2s linear infinite;
+  z-index: 6;
+}
+
+@keyframes qr-scan-move {
+  0% { top: 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}

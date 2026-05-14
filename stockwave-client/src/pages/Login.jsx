@@ -678,7 +678,24 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
               </div>
               <div className={`qr-frame ${qrActive ? "active" : ""}`}>
                 {qrActive ? (
-                  <video ref={videoRef} className="qr-video" />
+                  <>
+                    <video ref={videoRef} className="qr-video" />
+                    {/* Visual Scanner Overlay */}
+                    <div className="qr-scanner-overlay">
+                      <div className="qr-scanner-mask top"></div>
+                      <div className="qr-scanner-mask left"></div>
+                      <div className="qr-scanner-mask right"></div>
+                      <div className="qr-scanner-mask bottom"></div>
+                      
+                      <div className="qr-scanner-window">
+                        <div className="qr-corner top-left"></div>
+                        <div className="qr-corner top-right"></div>
+                        <div className="qr-corner bottom-left"></div>
+                        <div className="qr-corner bottom-right"></div>
+                        <div className="qr-scan-line"></div>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="qr-placeholder">
                     <div className="qr-icon-wrap">
