@@ -3,11 +3,24 @@ import "./Pos.css";
 import {
   Search, CreditCard,
   PlusCircle, Minus, Plus,
-  AlertTriangle, Loader, CheckCircle, X
+  AlertTriangle, Loader, CheckCircle, X,
+  Package, Cpu, Utensils, Wrench, Shirt, Monitor, Briefcase, Layout
 } from "lucide-react";
 import { getProducts, getRecentActivity, posCheckout } from "../api/stockwaveApi";
 
 const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+const getCategoryIcon = (category) => {
+  const cat = (category || "").toLowerCase();
+  if (cat.includes("elect")) return <Cpu size={18} />;
+  if (cat.includes("food")) return <Utensils size={18} />;
+  if (cat.includes("tool")) return <Wrench size={18} />;
+  if (cat.includes("cloth")) return <Shirt size={18} />;
+  if (cat.includes("offi")) return <Briefcase size={18} />;
+  if (cat.includes("furnit")) return <Layout size={18} />;
+  if (cat.includes("monit") || cat.includes("displ")) return <Monitor size={18} />;
+  return <Package size={18} />;
+};
 
 export default function Pos() {
   const [search, setSearch]               = useState("");
@@ -453,7 +466,9 @@ export default function Pos() {
                 return (
                   <div key={product.id} className={`pos-card ${outOfStock ? "out-of-stock" : ""}`}>
                     <div className="pos-card-top">
-                      <div className="pos-thumb" />
+                      <div className="pos-thumb">
+                        {getCategoryIcon(product.category)}
+                      </div>
                       <span className={
                         outOfStock ? "pos-stock out" :
                         product.stock <= 10 ? "pos-stock low" : "pos-stock"

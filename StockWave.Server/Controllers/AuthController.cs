@@ -471,27 +471,11 @@ if (user.Role == "Staff")
 
         private string BuildResetLink(string rawToken, HttpRequest request)
         {
-            var baseUrl = _config["Email:ResetLinkBaseUrl"]
-                       ?? _config["Frontend:BaseUrl"];
-
-            if (string.IsNullOrWhiteSpace(baseUrl))
-            {
-                var origin = Request.Headers.Origin.ToString();
-                if (!string.IsNullOrWhiteSpace(origin))
-                {
-                    baseUrl = origin;
-                }
-                else
-                {
-                    var referer = Request.Headers.Referer.ToString();
-                    if (Uri.TryCreate(referer, UriKind.Absolute, out var refererUri))
-                    {
-                        baseUrl = $"{refererUri.Scheme}://{refererUri.Host}{(refererUri.IsDefaultPort ? "" : $":{refererUri.Port}")}";
-                    }
-                }
-            }
-
-            baseUrl ??= "http://localhost:5173";
+            var baseUrl = GetRequestOrigin(request)
+                       ?? _config["Email:ResetLinkBaseUrl"]
+                       ?? _config["Frontend:BaseUrl"]
+                       ?? Environment.GetEnvironmentVariable("FRONTEND_URL")
+                       ?? "http://localhost:5173";
 
             return $"{baseUrl.TrimEnd('/')}/?token={Uri.EscapeDataString(rawToken)}";
         }
@@ -540,7 +524,11 @@ if (user.Role == "Staff")
             }.ToMessageBody();
 
             using var smtp = new SmtpClient();
-            var socketOptions = enableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
+            var socketOptions = enableSsl
+                ? (port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls)
+                : SecureSocketOptions.None;
+
+            _logger.LogInformation("Sending password reset email via SMTP host {Host}:{Port} with {SocketOptions}", host, port, socketOptions);
 
             await smtp.ConnectAsync(host, port, socketOptions);
             await smtp.AuthenticateAsync(username, password);
