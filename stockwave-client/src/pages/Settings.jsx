@@ -12,6 +12,7 @@ import {
   toggleStaffStatus,
   resetStaffPassword,
   updateMyProfile,
+  getMyProfile,                // ← NEW
 } from "../api/stockwaveApi";
 import { useActionGuard } from "../hooks/useActionGuard";
 import {
@@ -38,7 +39,9 @@ import {
   Eye,
   EyeOff,
   X,
-  KeyRound,                    // ← NEW
+  KeyRound,
+  Download,                    // ← NEW
+  ScanQrCode,                  // ← NEW
 } from "lucide-react";
 
 const tabs = [
@@ -535,9 +538,10 @@ export default function Settings() {
   const handleSaveProfile = async () => {
     await run("save-profile", async () => {
       try {
+        let res;
         if (isAdmin) {
           // Admin uses the full update endpoint
-          await updateUser(profile.id, {
+          res = await updateUser(profile.id, {
             fullName:    profile.name,
             username:    profile.username,
             email:       profile.email,
@@ -546,7 +550,7 @@ export default function Settings() {
           });
         } else {
           // Staff uses the self-service profile endpoint
-          await updateMyProfile({
+          res = await updateMyProfile({
             fullName:    profile.name,
             email:       profile.email,
             phoneNumber: profile.phone,
@@ -554,13 +558,31 @@ export default function Settings() {
           });
         }
         const u = JSON.parse(localStorage.getItem("user") || "{}");
-        Object.assign(u, { fullName: profile.name, username: profile.username, email: profile.email, phoneNumber: profile.phone, bio: profile.bio });
-        localStorage.setItem("user", JSON.stringify(u));
+        // Update local user object with returned data including QrToken
+        const updatedUser = { ...u, ...res.data.user };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
         showSaved();
       } catch (err) {
         alert(err.response?.data?.message || "Failed to update profile.");
       }
     });
+  };
+
+  const handleDownloadQr = () => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${user.qrToken || user.QrToken}`;
+    fetch(qrUrl)
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `StockWave_QR_${user.username}.png`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      })
+      .catch(() => alert("Failed to download QR code."));
   };
 
   const [system, setSystem] = useState({
@@ -588,6 +610,30 @@ export default function Settings() {
   const [passSuccess, setPassSuccess]         = useState(false);
 
   const showSaved = () => { setSaved(true); setTimeout(() => setSaved(false), 2500); };
+
+  // Fetch latest profile data on mount to ensure QrToken is present
+  useEffect(() => {
+    const refreshProfile = async () => {
+      try {
+        const res = await getMyProfile();
+        const updatedUser = { ...user, ...res.data.user };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        
+        // Update local state if needed
+        setProfile(p => ({
+          ...p,
+          name:     res.data.user.fullName    || p.name,
+          username: res.data.user.username    || p.username,
+          email:    res.data.user.email       || p.email,
+          phone:    res.data.user.phoneNumber || p.phone,
+          bio:      res.data.user.bio         || p.bio,
+        }));
+      } catch (err) {
+        console.error("Failed to refresh profile:", err);
+      }
+    };
+    refreshProfile();
+  }, []);
 
   const handlePasswordChange = async () => {
     setPassError(""); setPassSuccess(false);
@@ -701,6 +747,44 @@ export default function Settings() {
                   </div>
                 </div>
               </Section>
+
+              {/* QR LOGIN SECTION */}
+              <Section title="QR Login Code" sub="Your permanent sign-in key" icon={ScanQrCode}>
+                <div className="qr-settings-flex">
+                  <div className="qr-settings-preview">
+                    {user.qrToken || user.QrToken ? (
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${user.qrToken || user.QrToken}`}
+                        alt="My QR Login Code"
+                        className="qr-img-large"
+                      />
+                    ) : (
+                      <div className="qr-placeholder-settings">
+                        <ScanQrCode size={40} opacity={0.2} />
+                        <p>Update profile to generate QR</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="qr-settings-info">
+                    <p className="qr-info-text">
+                      This is your <strong>permanent</strong> login QR code. You can use it to sign in quickly from the login screen without typing your password.
+                    </p>
+                    <ul className="qr-info-list">
+                      <li>One-time generation</li>
+                      <li>Secure and unique to your account</li>
+                      <li>Keep it private and do not share</li>
+                    </ul>
+                    <button
+                      className="btn-download-qr"
+                      onClick={handleDownloadQr}
+                      disabled={!(user.qrToken || user.QrToken)}
+                    >
+                      <Download size={16} /> Save QR Code
+                    </button>
+                  </div>
+                </div>
+              </Section>
+
               <div className="section-actions">
                 <button className="btn-save" onClick={handleSaveProfile} disabled={isRunning("save-profile")}>
                   {isRunning("save-profile") ? "Applying..." : "Update Profile"}

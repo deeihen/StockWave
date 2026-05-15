@@ -33,5 +33,8 @@ namespace StockWave.Server.Models
         // Forgot-password (Admin accounts only)
         public string? PasswordResetToken { get; set; }
         public DateTime? ResetTokenExpiry { get; set; }
+
+        // QR Login Token (One-time generation, permanent until reset)
+        public string QrToken { get; set; } = string.Empty;
     }
 }
