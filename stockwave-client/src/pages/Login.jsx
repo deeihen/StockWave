@@ -642,9 +642,7 @@ export default function Login({ onLoginSuccess, onGoRegister }) {
                   <span className="checkmark" />
                   Remember me
                 </label>
-                <a href="#" className="forgot-link" onClick={openForgotModal}>
-                  Forgot password?
-                </a>
+                
               </div>
 
               {/* Submit */}
