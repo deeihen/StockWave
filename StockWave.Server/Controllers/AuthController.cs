@@ -400,7 +400,7 @@ if (user.Role == "Staff")
             user.ResetTokenExpiry   = DateTime.UtcNow.AddHours(1);
             await _db.SaveChangesAsync();
 
-            var resetLink = BuildResetLink(rawToken);
+            var resetLink = BuildResetLink(rawToken, Request);
 
             try
             {
@@ -469,7 +469,7 @@ if (user.Role == "Staff")
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private string BuildResetLink(string rawToken)
+        private string BuildResetLink(string rawToken, HttpRequest request)
         {
             var baseUrl = _config["Email:ResetLinkBaseUrl"]
                        ?? _config["Frontend:BaseUrl"];
@@ -494,6 +494,25 @@ if (user.Role == "Staff")
             baseUrl ??= "http://localhost:5173";
 
             return $"{baseUrl.TrimEnd('/')}/?token={Uri.EscapeDataString(rawToken)}";
+        }
+
+        private static string? GetRequestOrigin(HttpRequest request)
+        {
+            if (request.Headers.TryGetValue("Origin", out var originValues))
+            {
+                var origin = originValues.FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(origin))
+                    return origin;
+            }
+
+            if (request.Headers.TryGetValue("Referer", out var refererValues))
+            {
+                var referer = refererValues.FirstOrDefault();
+                if (Uri.TryCreate(referer, UriKind.Absolute, out var uri))
+                    return uri.GetLeftPart(UriPartial.Authority);
+            }
+
+            return null;
         }
 
         // ── SMTP email sender ───────────────────────────
